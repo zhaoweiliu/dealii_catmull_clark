@@ -11,11 +11,16 @@
 #include <stdio.h>
 
 #include <deal.II/fe/fe.h>
+#include <deal.II/fe/fe_poly_tensor.h>
+
+#include "polynomials_CubicBSpline.hpp"
+#include "polynomials_Catmull_Clark.hpp"
+
 
 DEAL_II_NAMESPACE_OPEN
 
 
-template <int dim, int spacedim = dim>
+template <int dim, int spacedim>
 class FE_Catmull_Clark : public FiniteElement<dim, spacedim>
 {
 public:
@@ -41,6 +46,7 @@ private:
 
     const bool dominate;
 };
+
 
 DEAL_II_NAMESPACE_CLOSE
 
