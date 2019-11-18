@@ -20,13 +20,13 @@ namespace
                 return {1./6.,-1./2.,1./2.,-1./6.};
                 break;
             case 1:
-                return {4./6.,0.,1.,-1./2.};
+                return {4./6.,0.,-1.,1./2.};
                 break;
             case 2:
                 return {1./6.,1./2.,1./2.,-1./2.};
                 break;
             case 3:
-                return {0.,0.,0.,-1.};
+                return {0.,0.,0.,1./6.};
                 break;
             default:
                 Assert(index > 3, ExcMessage("cubic polynomial coefficient index needs to be < 4."));

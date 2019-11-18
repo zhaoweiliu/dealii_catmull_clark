@@ -22,9 +22,11 @@ FE_Catmull_Clark<dim,spacedim>::FE_Catmull_Clark(const unsigned int val, const u
                             n_components,
                             0,
                             FiniteElementData<dim>::H2),
+                               
     std::vector<bool>(),
-    std::vector<ComponentMask>())
-, dominate(dominate)
+    std::vector<ComponentMask>()),
+    valence(val),
+    dominate(dominate)
 {}
 
 
