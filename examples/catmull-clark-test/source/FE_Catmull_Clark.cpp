@@ -11,6 +11,8 @@
 
 #include <deal.II/fe/fe_nothing.h>
 
+#include "polynomials_Catmull_Clark.hpp"
+
 
 DEAL_II_NAMESPACE_OPEN
 
@@ -69,5 +71,27 @@ FE_Catmull_Clark<dim, spacedim>::requires_update_flags(const UpdateFlags flags) 
 
 
 
+template<int dim, int spacedim>
+double FE_Catmull_Clark<dim, spacedim>::shape_value (const unsigned int i, const Point< dim > &p) const{
+    
+    
+}
+
+template <int dim, int spacedim>
+std::unique_ptr<typename FiniteElement<dim, spacedim>::InternalDataBase>
+FE_Catmull_Clark<dim, spacedim>::
+get_data(
+         const UpdateFlags update_flags,
+         const Mapping<dim, spacedim> & mapping,
+         const Quadrature<dim> & quadrature,
+         dealii::internal::FEValuesImplementation::FiniteElementRelatedData<dim,spacedim>& output_data
+         ) const
+{
+    // Create a default data object.  Normally we would then
+    // need to resize things to hold the appropriate numbers
+    // of dofs, but in this case all data fields are empty.
+    return std_cxx14::make_unique<
+    typename FiniteElement<dim, spacedim>::InternalDataBase>();
+}
 
 DEAL_II_NAMESPACE_CLOSE
