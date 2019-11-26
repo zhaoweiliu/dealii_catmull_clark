@@ -34,10 +34,36 @@ namespace
                 break;
         }
     }
+    
+    
+    
+    std::vector<double> get_cubicbspline_end_coefficients(const unsigned int index){
+        
+        switch (index) {
+            case 0:
+                return {1.,-1.,0.,1./6.};
+                break;
+            case 1:
+                return {0.,1.,0.,-1./3.};
+                break;
+            case 2:
+                return {0.,0.,0.,1./6.};
+                break;
+            default:
+                Assert(index > 2, ExcMessage("cubic polynomial end coefficient index needs to be < 3."));
+                return {0,0,0,0};
+                break;
+        }
+    }
+    
     }
 
 PolynomialsCubicBSpline :: PolynomialsCubicBSpline(const unsigned int index)
 : Polynomials::Polynomial<double>(get_cubicbspline_coefficients(index))
+{}
+
+PolynomialsCubicBSplineEnd :: PolynomialsCubicBSplineEnd(const unsigned int index)
+: Polynomials::Polynomial<double>(get_cubicbspline_end_coefficients(index))
 {}
 
 DEAL_II_NAMESPACE_CLOSE
