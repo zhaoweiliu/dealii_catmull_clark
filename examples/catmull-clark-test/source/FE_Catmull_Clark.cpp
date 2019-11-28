@@ -72,10 +72,71 @@ FE_Catmull_Clark<dim, spacedim>::requires_update_flags(const UpdateFlags flags) 
 
 
 template<int dim, int spacedim>
-double FE_Catmull_Clark<dim, spacedim>::shape_value (const unsigned int i, const Point< dim > &p) const{
-    
-    
+double FE_Catmull_Clark<dim, spacedim>::shape_value (const unsigned int i, const Point< dim > &p) const
+{
+    if (valence == 4){
+        // i in [0,15];
+        return poly_reg.value(i,p);
+    }else if(valence == 2){
+        // i in [0,11];
+        return poly_one_end.value(i,p);
+    }else if (valence == 1){
+        // i in [0,8];
+        return poly_two_ends.value(i,p);
+    }else{
+        // i in [0, 2*valence + 7]
+    }
 }
+
+
+template<int dim, int spacedim>
+FullMatrix<double> FE_Catmull_Clark<dim, spacedim>::compute_subd_matrix(const Point<dim> p, Point<dim> &p_mapped, double &Jacobian){
+    double u = p[0], v = p[1];
+    double eps = 10e-10;
+    if (u < eps && v < eps){
+        u += eps;
+        v += eps;
+    }
+    int n = int(std::floor(std::min(-std::log2(u), -std::log2(v))+1));
+    double pow2 = pow(2.,n-1.);
+    int k = -1;
+    u *= pow2;
+    v *= pow2;
+    if (v < 0.5) {
+        k = 0; u = 2. * u - 1.; v = 2. * v;
+    }else if(u < 0.5){
+        k = 2; u = 2. * u; v = 2. * v - 1.;
+    }else{
+        k = 1; u = 2. * u - 1; v = 2. * v - 1.;
+    }
+    // mapping p into the sub paramentric domian
+    p_mapped = {u,v};
+    
+    FullMatrix<double> P;
+    switch (k) {
+        case 0:
+             P = pickmtrx1();
+        case 1:
+             P = pickmtrx2();
+        case 2:
+             P = pickmtrx3();
+        default:
+            throw std::runtime_error("no picking matrix returned.");
+            break;
+    }
+    FullMatrix<double> D(16,2*valence+8);
+    FullMatrix<double> A_bar = A_bar_matrix();
+    FullMatrix<double> A_n = A_bar;
+    for(int i = 1;i<n;++i){
+        A_bar.mmult(A_n, A_matrix());
+        A_bar = A_n;
+    }
+    P.mmult(D,A_n);
+    Jacobian = pow(2,n);
+    return D;
+};
+
+
 
 template <int dim, int spacedim>
 std::unique_ptr<typename FiniteElement<dim, spacedim>::InternalDataBase>

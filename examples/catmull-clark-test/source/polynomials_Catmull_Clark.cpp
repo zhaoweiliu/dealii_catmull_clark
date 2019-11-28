@@ -9,18 +9,6 @@
 
 DEAL_II_NAMESPACE_OPEN
 
-
-template<int dim>
-polynomials_Catmull_Clark<dim>::polynomials_Catmull_Clark()
-{
-    for (int i = 0 ; i < 3 ; ++i){
-        polys_1d.push_back(PolynomialsCubicBSpline(i)) ;
-    }
-    for (int i = 0 ; i < 2 ; ++i){
-        polys_1d_end.push_back(PolynomialsCubicBSplineEnd(i)) ;
-    }
-}
-
 template<int dim>
 void polynomials_Catmull_Clark<dim>::regular::
 compute(const Point<dim> &unit_point,
@@ -33,9 +21,8 @@ compute(const Point<dim> &unit_point,
     if (dim == 1) {
         double u = unit_point[0];
         for (unsigned int i = 0; i < 4; ++i) {
-            PolynomialsCubicBSpline poly(i);
-            values[i] = poly.value(u);
-            auto poly_der = poly.derivative();
+            values[i] = polys_1d[i].value(u);
+            auto poly_der = polys_1d[i].derivative();
             grads[i][0] = poly_der.value(u);
             auto poly_der_der = poly_der.derivative();
             grad_grads[i][0][0] = poly_der_der.value(u);
@@ -45,22 +32,23 @@ compute(const Point<dim> &unit_point,
         }
     }
     else if(dim == 2){
-        std::vector<PolynomialsCubicBSpline> pols;
-        for (unsigned int i = 0; i < 4 ; ++i) {
-            PolynomialsCubicBSpline p_i(i);
-            pols.push_back(p_i);
-        }
-        TensorProductPolynomials<dim> tp_poly(pols);
+        TensorProductPolynomials<dim> tp_poly(polys_1d);
         for (unsigned int i = 0; i < 4*4; ++i) {
             values[i] = tp_poly.compute_value(i, unit_point);
             grads[i] = tp_poly.compute_grad(i, unit_point);
             grad_grads[i] = tp_poly.compute_grad_grad(i, unit_point);
-//            third_derivatives[i] = tp_poly.compute_derivative<3>(i, unit_point);
         }
     }
 };
 
 
+
+template<int dim>
+double polynomials_Catmull_Clark<dim>::regular::value(const unsigned int i, const Point<dim> &unit_point) const
+{
+    TensorProductPolynomials<dim> tp_poly(polys_1d);
+    return tp_poly.compute_value(i, unit_point);
+}
 
 template<int dim>
 void polynomials_Catmull_Clark<dim>::two_ends_truncated::
@@ -72,19 +60,24 @@ compute(const Point<dim> &unit_point,
         std::vector<Tensor<4,dim>> &fourth_derivatives )const
 {
     AssertDimension(dim, 2);
-    std::vector<PolynomialsCubicBSplineEnd> pols;
-    for (unsigned int i = 0; i < 3 ; ++i) {
-        PolynomialsCubicBSplineEnd p_i(i);
-        pols.push_back(p_i);
-    }
-    TensorProductPolynomials<dim> tp_poly(pols);
+    TensorProductPolynomials<dim> tp_poly(polys_1d_end);
     for (unsigned int i = 0; i < 3*3; ++i) {
         values[i] = tp_poly.compute_value(i, unit_point);
         grads[i] = tp_poly.compute_grad(i, unit_point);
         grad_grads[i] = tp_poly.compute_grad_grad(i, unit_point);
-//        third_derivatives[i] = tp_poly.compute_derivative<3>(i, unit_point);
     }
 };
+
+
+
+template<int dim>
+double polynomials_Catmull_Clark<dim>::two_ends_truncated::value(const unsigned int i, const Point<dim> &unit_point) const
+{
+    TensorProductPolynomials<dim> tp_poly(polys_1d_end);
+    return tp_poly.compute_value(i, unit_point);
+}
+
+
 
 template<int dim>
 void polynomials_Catmull_Clark<dim>::one_end_truncated::
@@ -96,16 +89,7 @@ compute(const Point<dim> &unit_point,
         std::vector<Tensor<4,dim>> &fourth_derivatives )const
 {
     AssertDimension(dim, 2);
-    std::vector<PolynomialsCubicBSpline> pols_1;
-    std::vector<PolynomialsCubicBSplineEnd> pols_2;
-    for (unsigned int i = 0; i < 4 ; ++i) {
-        PolynomialsCubicBSpline p_i(i);
-        pols_1.push_back(p_i);
-    }
-    for (unsigned int i = 0; i < 3 ; ++i) {
-        PolynomialsCubicBSplineEnd p_i(i);
-        pols_2.push_back(p_i);
-    }
+
     for (unsigned int i = 0; i < 4; ++i) {
         for (unsigned int j = 0; j < 3; ++j) {
             values[j*4+i] = pols_1[i].value(unit_point[0])*pols_2[j].value(unit_point[1]);
@@ -127,6 +111,15 @@ compute(const Point<dim> &unit_point,
         }
     }
 };
+
+
+
+template<int dim>
+double polynomials_Catmull_Clark<dim>::one_end_truncated::value(const unsigned int i, const Point<dim> &unit_point) const{
+    int a = i/4;
+    int b = i - a*4;
+    return pols_1[b].value(unit_point[0])*pols_2[a].value(unit_point[1]);
+}
 
 
 
