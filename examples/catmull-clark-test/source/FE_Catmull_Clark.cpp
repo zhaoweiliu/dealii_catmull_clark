@@ -9,8 +9,6 @@
 
 #include <deal.II/base/std_cxx14/memory.h>
 
-#include <deal.II/fe/fe_nothing.h>
-
 #include "polynomials_Catmull_Clark.hpp"
 
 
@@ -20,13 +18,12 @@ DEAL_II_NAMESPACE_OPEN
 template <int dim, int spacedim>
 FE_Catmull_Clark<dim,spacedim>::FE_Catmull_Clark(const unsigned int val, const unsigned int n_components, const bool dominate)
 : FiniteElement<dim,spacedim> (
-    FiniteElementData<dim>({0,0,0,0,2*val+8},
+    FiniteElementData<dim>({0,0,0,2*val+8},
                             n_components,
-                            0,
+                            3,
                             FiniteElementData<dim>::H2),
-                               
-    std::vector<bool>(),
-    std::vector<ComponentMask>()),
+    std::vector<bool>(2*val+8,true),
+    std::vector<ComponentMask>(2*val+8,std::vector<bool>(1,true))),
     valence(val),
     dominate(dominate)
 {}
@@ -84,20 +81,61 @@ double FE_Catmull_Clark<dim, spacedim>::shape_value (const unsigned int i, const
         // i in [0,8];
         return poly_two_ends.value(i,p);
     }else{
-        // i in [0, 2*valence + 7]
+        // i in [0, 2*valence + 7];
+        throw std::runtime_error("please use FE_Catmull_Clark<dim, spacedim>::shape_values instead.");
     }
 }
 
 
 template<int dim, int spacedim>
-FullMatrix<double> FE_Catmull_Clark<dim, spacedim>::compute_subd_matrix(const Point<dim> p, Point<dim> &p_mapped, double &Jacobian){
+Vector<double> FE_Catmull_Clark<dim, spacedim>::shape_values (const Point< dim > &p) const
+{
+    if (valence == 1) {
+        Vector<double> shape_vectors(9);
+        for (unsigned int i = 0; i < 9; ++i) {
+            shape_vectors[i] = poly_two_ends.value(i,p);
+        }
+        return shape_vectors;
+    }else{
+        Vector<double> shape_vectors(2*valence + 8);
+        if (valence == 4){
+            for (unsigned int i = 0; i < 16; ++i)
+            {
+                shape_vectors[i] = poly_reg.value(i,p);
+            }
+        }
+        else if(valence == 2){
+            for (unsigned int i = 0; i < 12; ++i)
+            {
+                shape_vectors[i] = poly_one_end.value(i,p);
+            }
+        }
+        else {
+            Vector<double> shape_vectors_reg(16);
+            Point<dim> p_mapped;
+            double jac;
+            FullMatrix<double> Subd_matrix = compute_subd_matrix(p, p_mapped, jac);
+            for (unsigned int i = 0; i < 16; ++i)
+            {
+                shape_vectors_reg[i] = poly_reg.value(i,p_mapped);
+            }
+            Subd_matrix.Tvmult(shape_vectors,shape_vectors_reg);
+        }
+        return shape_vectors;
+    }
+}
+
+
+
+template<int dim, int spacedim>
+FullMatrix<double> FE_Catmull_Clark<dim, spacedim>::compute_subd_matrix(const Point<dim> p, Point<dim> &p_mapped, double &Jacobian) const {
     double u = p[0], v = p[1];
     double eps = 10e-10;
     if (u < eps && v < eps){
         u += eps;
         v += eps;
     }
-    int n = int(std::floor(std::min(-std::log2(u), -std::log2(v))+1));
+    int n = std::floor(std::min(-std::log2(u), -std::log2(v))+1);
     double pow2 = pow(2.,n-1.);
     int k = -1;
     u *= pow2;
@@ -109,17 +147,20 @@ FullMatrix<double> FE_Catmull_Clark<dim, spacedim>::compute_subd_matrix(const Po
     }else{
         k = 1; u = 2. * u - 1; v = 2. * v - 1.;
     }
-    // mapping p into the sub paramentric domian
+    // mapping p into the sub parametric domian
     p_mapped = {u,v};
     
     FullMatrix<double> P;
     switch (k) {
         case 0:
              P = pickmtrx1();
+            break;
         case 1:
              P = pickmtrx2();
+            break;
         case 2:
              P = pickmtrx3();
+            break;
         default:
             throw std::runtime_error("no picking matrix returned.");
             break;
@@ -151,8 +192,75 @@ get_data(
     // Create a default data object.  Normally we would then
     // need to resize things to hold the appropriate numbers
     // of dofs, but in this case all data fields are empty.
+    if (valence != 4) {
+        std::vector<Point<dim>> qpts = quadrature.get_points();
+        for (unsigned int iq = 0; iq < qpts.size(); ++iq) {
+            Point<dim> p = qpts[iq];
+            Point<dim> p_mapped;
+            double jac;
+            FullMatrix<double> Subd_matrix = compute_subd_matrix(p, p_mapped, jac);
+
+        }
+    }
+
+
+
     return std_cxx14::make_unique<
     typename FiniteElement<dim, spacedim>::InternalDataBase>();
 }
+
+template<int dim, int spacedim>
+void FE_Catmull_Clark<dim,spacedim>::fill_fe_values(
+  const typename Triangulation<dim, spacedim>::cell_iterator &cell,
+               const CellSimilarity::Similarity cell_similarity,
+               const Quadrature<dim> &quadrature,
+               const Mapping<dim, spacedim> &mapping,
+               const typename Mapping<dim, spacedim>::InternalDataBase &mapping_internal,
+               const dealii::internal::FEValuesImplementation::MappingRelatedData<dim,spacedim>& mapping_data,
+               const typename FiniteElement<dim, spacedim>::InternalDataBase &fe_internal,
+               dealii::internal::FEValuesImplementation::FiniteElementRelatedData<dim,spacedim>& output_data) const {
+    
+}
+
+
+template<int dim, int spacedim>
+void FE_Catmull_Clark<dim,spacedim>::fill_fe_face_values(
+  const typename Triangulation<dim, spacedim>::cell_iterator &cell,
+  const unsigned int face_no,
+  const Quadrature<dim - 1> &quadrature,
+  const Mapping<dim, spacedim> &mapping,
+  const typename Mapping<dim, spacedim>::InternalDataBase &mapping_internal,
+  const dealii::internal::FEValuesImplementation::MappingRelatedData<dim, spacedim> &mapping_data,
+  const typename FiniteElement<dim, spacedim>::InternalDataBase &fe_internal,
+                                                        dealii::internal::FEValuesImplementation::FiniteElementRelatedData<dim,spacedim> &output_data) const{
+    
+}
+
+
+template<int dim, int spacedim>
+void FE_Catmull_Clark<dim,spacedim>::fill_fe_subface_values(
+  const typename Triangulation<dim, spacedim>::cell_iterator &cell,
+  const unsigned int face_no,
+  const unsigned int sub_no,
+  const Quadrature<dim - 1> & quadrature,
+  const Mapping<dim, spacedim> & mapping,
+  const typename Mapping<dim, spacedim>::InternalDataBase &mapping_internal,
+  const dealii::internal::FEValuesImplementation::MappingRelatedData<dim,spacedim>& mapping_data,
+  const typename FiniteElement<dim, spacedim>::InternalDataBase &fe_internal,
+  dealii::internal::FEValuesImplementation::FiniteElementRelatedData<dim,spacedim> &output_data) const{
+    
+}
+
+
+
+template<int dim, int spacedim> bool
+FE_Catmull_Clark<dim,spacedim>::operator==(const FiniteElement<dim, spacedim> &fe) const{
+    
+}
+
+
+
+
+template class FE_Catmull_Clark<2,3>;
 
 DEAL_II_NAMESPACE_CLOSE

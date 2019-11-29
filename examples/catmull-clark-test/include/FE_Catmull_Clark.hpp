@@ -13,6 +13,7 @@
  #include <deal.II/base/config.h>
 
 #include <deal.II/fe/fe.h>
+#include <deal.II/fe/fe_nothing.h>
 #include <deal.II/fe/fe_poly_tensor.h>
 
 #include "polynomials_CubicBSpline.hpp"
@@ -45,6 +46,40 @@ public:
     
     virtual double shape_value (const unsigned int i, const Point< dim > &p) const;
     
+
+    virtual void
+    fill_fe_values(
+      const typename Triangulation<dim, spacedim>::cell_iterator &cell,
+                   const CellSimilarity::Similarity cell_similarity,
+                   const Quadrature<dim> &quadrature,
+                   const Mapping<dim, spacedim> &mapping,
+                   const typename Mapping<dim, spacedim>::InternalDataBase &mapping_internal,
+                   const dealii::internal::FEValuesImplementation::MappingRelatedData<dim,spacedim>& mapping_data,
+                   const typename FiniteElement<dim, spacedim>::InternalDataBase &fe_internal,
+                   dealii::internal::FEValuesImplementation::FiniteElementRelatedData<dim,spacedim>& output_data) const override;
+//
+    virtual void
+    fill_fe_face_values(
+      const typename Triangulation<dim, spacedim>::cell_iterator &cell,
+      const unsigned int face_no,
+      const Quadrature<dim - 1> &quadrature,
+      const Mapping<dim, spacedim> &mapping,
+      const typename Mapping<dim, spacedim>::InternalDataBase &mapping_internal,
+      const dealii::internal::FEValuesImplementation::MappingRelatedData<dim, spacedim> &mapping_data,
+      const typename FiniteElement<dim, spacedim>::InternalDataBase &fe_internal,
+      dealii::internal::FEValuesImplementation::FiniteElementRelatedData<dim,spacedim> &output_data) const override;
+//
+    virtual void
+    fill_fe_subface_values(
+      const typename Triangulation<dim, spacedim>::cell_iterator &cell,
+      const unsigned int face_no,
+      const unsigned int sub_no,
+      const Quadrature<dim - 1> & quadrature,
+      const Mapping<dim, spacedim> & mapping,
+      const typename Mapping<dim, spacedim>::InternalDataBase &mapping_internal,
+      const dealii::internal::FEValuesImplementation::MappingRelatedData<dim,spacedim>& mapping_data,
+      const typename FiniteElement<dim, spacedim>::InternalDataBase &fe_internal,
+      dealii::internal::FEValuesImplementation::FiniteElementRelatedData<dim,spacedim> &output_data) const override;
     
     virtual std::unique_ptr<typename FiniteElement<dim, spacedim>::InternalDataBase>
     get_data(
@@ -53,6 +88,15 @@ public:
              const Quadrature<dim> &       quadrature,
          dealii::internal::FEValuesImplementation::FiniteElementRelatedData<dim,spacedim>
              &output_data) const override;
+    
+    virtual bool
+    operator==(const FiniteElement<dim, spacedim> &fe) const override;
+
+    bool
+     is_dominating() const;
+    
+    Vector<double> shape_values (const Point< dim > &p) const;
+
     
 private:
     
@@ -66,7 +110,7 @@ private:
 
     const typename polynomials_Catmull_Clark<dim>::two_ends_truncated poly_two_ends;
     
-    FullMatrix<double> compute_subd_matrix(const Point<dim> p, Point<dim> &p_mapped, double &Jacobian);
+    FullMatrix<double> compute_subd_matrix(const Point<dim> p, Point<dim> &p_mapped, double &Jacobian) const;
     
     constexpr static double mS_12[7][7] = {
         {1./64., 3./32., 1./64., 0., 3./32., 1./64., 0. },
@@ -113,7 +157,7 @@ private:
         { 0., 0., 0., 0., 0., 1./4., 1./4.}
     };
     
-    const FullMatrix<double> S_matrix(){
+     FullMatrix<double> S_matrix()const{
         FullMatrix<double> S(2 * valence + 1);
         double a_N = 1. - (7.)/(4. * valence);
         double b_N = 3./(2. * valence * valence);
@@ -153,7 +197,7 @@ private:
         return S;
     };
     
-    const FullMatrix<double> A_matrix(){
+     FullMatrix<double> A_matrix()const{
         FullMatrix<double> A(2*valence+8);
         FullMatrix<double> S = S_matrix();
         //S has size 2*val+1 x 2*val+1
@@ -182,7 +226,7 @@ private:
         return A;
     };
     
-    const FullMatrix<double> A_bar_matrix(){
+     FullMatrix<double> A_bar_matrix()const{
         FullMatrix<double> A_bar(2*valence+17,2*valence+8);
         FullMatrix<double> A = A_matrix();
         A_bar.fill(A);
@@ -199,7 +243,7 @@ private:
         return A_bar;
     };
     
-    const FullMatrix<double> pickmtrx1(){
+     FullMatrix<double> pickmtrx1()const{
         FullMatrix<double> P(16,2*valence+17);
         if (valence == 3) {
             P.set(0, 1, 1.0);
@@ -217,7 +261,7 @@ private:
         return P;
     };
     
-    const FullMatrix<double> pickmtrx2(){
+     FullMatrix<double> pickmtrx2()const{
         FullMatrix<double> P(16,2*valence+17);
         P.set(0, 0, 1.0); P.set(1, 5, 1.0);
         P.set(2, 2*valence+3, 1.0); P.set(3, 2*valence+11, 1.0);
@@ -228,9 +272,9 @@ private:
         P.set(12, 2*valence+15, 1.0); P.set(13, 2*valence+14, 1.0);
         P.set(14, 2*valence+13, 1.0); P.set(15, 2*valence+8, 1.0);
         return P;
-    };
+    }const;
     
-    const FullMatrix<double> pickmtrx3(){
+     FullMatrix<double> pickmtrx3()const{
         FullMatrix<double> P(16,2*valence+17);
         P.set(0, 1, 1.0); P.set(1, 0, 1.0);
         P.set(2, 5, 1.0); P.set(3, 2*valence+3, 1.0);
@@ -241,11 +285,10 @@ private:
         P.set(12, 2*valence+16, 1.0); P.set(13, 2*valence+15, 1.0);
         P.set(14, 2*valence+14, 1.0); P.set(15, 2*valence+13, 1.0);
         return P;
-    };
+    } ;
 
 
 };
-
 
 DEAL_II_NAMESPACE_CLOSE
 
