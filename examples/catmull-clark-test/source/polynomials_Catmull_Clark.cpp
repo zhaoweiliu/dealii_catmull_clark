@@ -51,6 +51,13 @@ double polynomials_Catmull_Clark<dim>::regular::value(const unsigned int i, cons
 }
 
 template<int dim>
+Tensor<1,dim> polynomials_Catmull_Clark<dim>::regular::grads( const unsigned int i, const Point<dim> &unit_point) const
+{
+    TensorProductPolynomials<dim> tp_poly(polys_1d);
+    return tp_poly.compute_grad(i, unit_point);
+}
+
+template<int dim>
 void polynomials_Catmull_Clark<dim>::two_ends_truncated::
 compute(const Point<dim> &unit_point,
         std::vector<double>&values,
@@ -77,6 +84,14 @@ double polynomials_Catmull_Clark<dim>::two_ends_truncated::value(const unsigned 
     return tp_poly.compute_value(i, unit_point);
 }
 
+
+
+template<int dim>
+Tensor<1,dim> polynomials_Catmull_Clark<dim>::two_ends_truncated::grads(const unsigned int i, const Point<dim> &unit_point) const
+{
+    TensorProductPolynomials<dim> tp_poly(polys_1d_end);
+    return tp_poly.compute_grad(i, unit_point);
+}
 
 
 template<int dim>
@@ -121,7 +136,16 @@ double polynomials_Catmull_Clark<dim>::one_end_truncated::value(const unsigned i
     return pols_1[b].value(unit_point[0])*pols_2[a].value(unit_point[1]);
 }
 
-
+template<int dim>
+Tensor<1,dim> polynomials_Catmull_Clark<dim>::one_end_truncated::grads(const unsigned int i, const Point<dim> &unit_point) const
+{
+    int a = i/4;
+    int b = i - a*4;
+    Tensor<1,dim> grads;
+    grads[0] = pols_1[b].derivative().value(unit_point[0])*pols_2[a].value(unit_point[1]);
+    grads[1] = pols_1[b].value(unit_point[0])*pols_2[a].derivative().value(unit_point[1]);
+    return grads;
+}
 
 template class polynomials_Catmull_Clark<1>;
 template class polynomials_Catmull_Clark<2>;

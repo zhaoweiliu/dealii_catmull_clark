@@ -15,6 +15,8 @@
 #include <deal.II/fe/fe.h>
 #include <deal.II/fe/fe_nothing.h>
 #include <deal.II/fe/fe_poly_tensor.h>
+#include <deal.II/fe/fe_values.h>
+#include <deal.II/fe/mapping.h>
 
 #include "polynomials_CubicBSpline.hpp"
 #include "polynomials_Catmull_Clark.hpp"
@@ -44,8 +46,12 @@ public:
     virtual UpdateFlags
     requires_update_flags(const UpdateFlags update_flags) const override;
     
-    virtual double shape_value (const unsigned int i, const Point< dim > &p) const;
+    virtual double shape_value (const unsigned int i, const Point< dim > &p) const override;
+    virtual Tensor<1,dim> shape_grad (const unsigned int i, const Point< dim > &p) const override;
     
+    std::vector<double> shape_values (const Point< dim > &p) const;
+    
+    std::vector<Tensor<1,dim>> shape_grads (const Point< dim > &p) const;
 
     virtual void
     fill_fe_values(
@@ -94,8 +100,16 @@ public:
 
     bool
      is_dominating() const;
+        
     
-    Vector<double> shape_values (const Point< dim > &p) const;
+    class InternalData : public FiniteElement<dim,spacedim>::InternalDataBase
+    {
+    public:
+
+        mutable std::vector<std::vector<double>> shape_values;
+
+        mutable std::vector<std::vector<Tensor<1,dim>>> shape_grads;
+    };
 
     
 private:
@@ -171,7 +185,7 @@ private:
         S.set(1, 1, d); S.set(1, 2, e); S.set(1, 3, e);
         S.set(1, 2*valence-1, e); S.set(1, 2*valence, e);
         S.set(2, 1, f); S.set(2, 2, f); S.set(2, 3, f);
-        for(int iv = 1; iv < valence-1; ++iv){
+        for(unsigned int iv = 1; iv < valence-1; ++iv){
             S.set(0,2*iv+1,b_N);
             S.set(0,2*iv+2,c_N);
             S.set(2*iv+1,0,d);
@@ -272,7 +286,7 @@ private:
         P.set(12, 2*valence+15, 1.0); P.set(13, 2*valence+14, 1.0);
         P.set(14, 2*valence+13, 1.0); P.set(15, 2*valence+8, 1.0);
         return P;
-    }const;
+    };
     
      FullMatrix<double> pickmtrx3()const{
         FullMatrix<double> P(16,2*valence+17);

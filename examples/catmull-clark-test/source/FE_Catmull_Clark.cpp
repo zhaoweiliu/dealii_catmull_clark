@@ -86,18 +86,36 @@ double FE_Catmull_Clark<dim, spacedim>::shape_value (const unsigned int i, const
     }
 }
 
+template<int dim, int spacedim>
+Tensor<1,dim> FE_Catmull_Clark<dim, spacedim>::shape_grad (const unsigned int i, const Point< dim > &p) const
+{
+    if (valence == 4){
+        // i in [0,15];
+        return poly_reg.grads(i,p);
+    }else if(valence == 2){
+        // i in [0,11];
+        return poly_one_end.grads(i,p);
+    }else if (valence == 1){
+        // i in [0,8];
+        return poly_two_ends.grads(i,p);
+    }else{
+        // i in [0, 2*valence + 7];
+        throw std::runtime_error("please use FE_Catmull_Clark<dim, spacedim>::shape_values instead.");
+    }
+};
+
 
 template<int dim, int spacedim>
-Vector<double> FE_Catmull_Clark<dim, spacedim>::shape_values (const Point< dim > &p) const
+std::vector<double> FE_Catmull_Clark<dim, spacedim>::shape_values (const Point< dim > &p) const
 {
     if (valence == 1) {
-        Vector<double> shape_vectors(9);
+        std::vector<double> shape_vectors(9);
         for (unsigned int i = 0; i < 9; ++i) {
             shape_vectors[i] = poly_two_ends.value(i,p);
         }
         return shape_vectors;
     }else{
-        Vector<double> shape_vectors(2*valence + 8);
+        std::vector<double> shape_vectors(2*valence + 8);
         if (valence == 4){
             for (unsigned int i = 0; i < 16; ++i)
             {
@@ -112,6 +130,7 @@ Vector<double> FE_Catmull_Clark<dim, spacedim>::shape_values (const Point< dim >
         }
         else {
             Vector<double> shape_vectors_reg(16);
+            Vector<double> shape_vectors_result(2*valence+8);
             Point<dim> p_mapped;
             double jac;
             FullMatrix<double> Subd_matrix = compute_subd_matrix(p, p_mapped, jac);
@@ -119,7 +138,10 @@ Vector<double> FE_Catmull_Clark<dim, spacedim>::shape_values (const Point< dim >
             {
                 shape_vectors_reg[i] = poly_reg.value(i,p_mapped);
             }
-            Subd_matrix.Tvmult(shape_vectors,shape_vectors_reg);
+            Subd_matrix.Tvmult(shape_vectors_result,shape_vectors_reg);
+            for (unsigned int i = 0; i < 2*valence+8; ++i) {
+                shape_vectors[i] = shape_vectors_result[i];
+            }
         }
         return shape_vectors;
     }
@@ -135,7 +157,7 @@ FullMatrix<double> FE_Catmull_Clark<dim, spacedim>::compute_subd_matrix(const Po
         u += eps;
         v += eps;
     }
-    int n = std::floor(std::min(-std::log2(u), -std::log2(v))+1);
+    int n = int(std::floor(std::min(-std::log2(u), -std::log2(v))+1));
     double pow2 = pow(2.,n-1.);
     int k = -1;
     u *= pow2;
@@ -189,24 +211,19 @@ get_data(
          dealii::internal::FEValuesImplementation::FiniteElementRelatedData<dim,spacedim>& output_data
          ) const
 {
-    // Create a default data object.  Normally we would then
-    // need to resize things to hold the appropriate numbers
-    // of dofs, but in this case all data fields are empty.
-    if (valence != 4) {
-        std::vector<Point<dim>> qpts = quadrature.get_points();
-        for (unsigned int iq = 0; iq < qpts.size(); ++iq) {
-            Point<dim> p = qpts[iq];
-            Point<dim> p_mapped;
-            double jac;
-            FullMatrix<double> Subd_matrix = compute_subd_matrix(p, p_mapped, jac);
-
-        }
+     //Create a default data object.
+    std::unique_ptr<
+    typename FiniteElement<dim, spacedim>::InternalDataBase>
+        data_ptr   = std_cxx14::make_unique<InternalData>();
+    auto &data       = dynamic_cast<InternalData &>(*data_ptr);
+    std::vector<Point<dim>> qpts = quadrature.get_points();
+    data.shape_values.resize(qpts.size());
+//    data.update_each = update_each(update_flags) | update_once(update_flags);
+    for (unsigned int iq = 0; iq < qpts.size(); ++iq) {
+        Point<dim> p = qpts[iq];
+        data.shape_values[iq] = this->shape_values(p);
     }
-
-
-
-    return std_cxx14::make_unique<
-    typename FiniteElement<dim, spacedim>::InternalDataBase>();
+    return data_ptr;
 }
 
 template<int dim, int spacedim>
