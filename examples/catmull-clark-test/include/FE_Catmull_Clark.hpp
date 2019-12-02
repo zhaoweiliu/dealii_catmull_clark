@@ -52,6 +52,8 @@ public:
     std::vector<double> shape_values (const Point< dim > &p) const;
     
     std::vector<Tensor<1,dim>> shape_grads (const Point< dim > &p) const;
+    
+    void compute(const Point< dim > &p, std::vector<double> &values,  std::vector<Tensor<1,dim>> &grads /*, add more if required*/) const;
 
     virtual void
     fill_fe_values(
@@ -106,9 +108,9 @@ public:
     {
     public:
 
-        mutable std::vector<std::vector<double>> shape_values;
+        Table<2,double> shape_values;
 
-        mutable std::vector<std::vector<Tensor<1,dim>>> shape_grads;
+        Table<2, Tensor<1,dim> > shape_derivatives;
     };
 
     
