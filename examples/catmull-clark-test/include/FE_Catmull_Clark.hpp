@@ -16,6 +16,7 @@
 #include <deal.II/fe/fe_nothing.h>
 #include <deal.II/fe/fe_poly_tensor.h>
 #include <deal.II/fe/fe_values.h>
+#include <deal.II/fe/fe_update_flags.h>
 #include <deal.II/fe/mapping.h>
 
 #include "polynomials_CubicBSpline.hpp"
@@ -65,7 +66,7 @@ public:
                    const dealii::internal::FEValuesImplementation::MappingRelatedData<dim,spacedim>& mapping_data,
                    const typename FiniteElement<dim, spacedim>::InternalDataBase &fe_internal,
                    dealii::internal::FEValuesImplementation::FiniteElementRelatedData<dim,spacedim>& output_data) const override;
-//
+
     virtual void
     fill_fe_face_values(
       const typename Triangulation<dim, spacedim>::cell_iterator &cell,
@@ -76,7 +77,7 @@ public:
       const dealii::internal::FEValuesImplementation::MappingRelatedData<dim, spacedim> &mapping_data,
       const typename FiniteElement<dim, spacedim>::InternalDataBase &fe_internal,
       dealii::internal::FEValuesImplementation::FiniteElementRelatedData<dim,spacedim> &output_data) const override;
-//
+
     virtual void
     fill_fe_subface_values(
       const typename Triangulation<dim, spacedim>::cell_iterator &cell,
@@ -102,18 +103,29 @@ public:
 
     bool
      is_dominating() const;
-        
+    
+    FiniteElementDomination::Domination
+    compare_for_domination(const FiniteElement<dim, spacedim> &fe,
+                           const unsigned int codim) const;
+    
+    std::vector<std::pair<unsigned int, unsigned int>>
+    hp_vertex_dof_identities(
+                             const FiniteElement<dim, spacedim> &fe_other) const;
     
     class InternalData : public FiniteElement<dim,spacedim>::InternalDataBase
     {
     public:
+        
+        using ShapeVector = dealii::Table<2, double>;
+        
+        using GradientVector = dealii::Table<2, Tensor<1, dim>>;
 
-        Table<2,double> shape_values;
+        ShapeVector shape_values;
 
-        Table<2, Tensor<1,dim> > shape_derivatives;
+        GradientVector shape_derivatives;
+           
     };
 
-    
 private:
     
     const unsigned int valence;

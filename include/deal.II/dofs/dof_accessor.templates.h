@@ -2088,14 +2088,14 @@ DoFAccessor<structdim, DoFHandlerType, level_dof_access>::get_dof_indices(
       case 1:
         Assert(dof_indices.size() ==
                  (2 * this->dof_handler->get_fe(fe_index).dofs_per_vertex +
-                  this->dof_handler->get_fe(fe_index).dofs_per_line),
+                  this->dof_handler->get_fe(fe_index).dofs_per_line + this->dof_handler->get_fe(fe_index).non_local_dofs_per_cell),
                ExcVectorDoesNotMatch());
         break;
       case 2:
         Assert(dof_indices.size() ==
                  (4 * this->dof_handler->get_fe(fe_index).dofs_per_vertex +
                   4 * this->dof_handler->get_fe(fe_index).dofs_per_line +
-                  this->dof_handler->get_fe(fe_index).dofs_per_quad),
+                  this->dof_handler->get_fe(fe_index).dofs_per_quad + this->dof_handler->get_fe(fe_index).non_local_dofs_per_cell),
                ExcVectorDoesNotMatch());
         break;
       case 3:
@@ -2103,7 +2103,7 @@ DoFAccessor<structdim, DoFHandlerType, level_dof_access>::get_dof_indices(
                  (8 * this->dof_handler->get_fe(fe_index).dofs_per_vertex +
                   12 * this->dof_handler->get_fe(fe_index).dofs_per_line +
                   6 * this->dof_handler->get_fe(fe_index).dofs_per_quad +
-                  this->dof_handler->get_fe(fe_index).dofs_per_hex),
+                  this->dof_handler->get_fe(fe_index).dofs_per_hex + this->dof_handler->get_fe(fe_index).non_local_dofs_per_cell),
                ExcVectorDoesNotMatch());
         break;
       default:
@@ -3066,7 +3066,11 @@ namespace internal
           accessor.set_dof_index(d,
                                  local_dof_indices[index],
                                  accessor.active_fe_index());
+        for (unsigned int d = 0; d < accessor.get_fe().non_local_dofs_per_cell; ++d, ++index)
 
+            accessor.set_dof_index(index,
+                                 local_dof_indices[index],
+                                 accessor.active_fe_index());
         Assert(index == accessor.get_fe().dofs_per_cell, ExcInternalError());
       }
 

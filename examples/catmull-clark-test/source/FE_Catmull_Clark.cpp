@@ -18,7 +18,7 @@ DEAL_II_NAMESPACE_OPEN
 template <int dim, int spacedim>
 FE_Catmull_Clark<dim,spacedim>::FE_Catmull_Clark(const unsigned int val, const unsigned int n_components, const bool dominate)
 : FiniteElement<dim,spacedim> (
-    FiniteElementData<dim>({0,0,0,2*val+8},
+    FiniteElementData<dim>({1,0,0,2*val+4},
                             n_components,
                             3,
                             FiniteElementData<dim>::H2),
@@ -63,6 +63,7 @@ template <int dim, int spacedim>
 UpdateFlags
 FE_Catmull_Clark<dim, spacedim>::requires_update_flags(const UpdateFlags flags) const
 {
+    /* Require implementation later*/
   return flags;
 }
 
@@ -82,7 +83,9 @@ double FE_Catmull_Clark<dim, spacedim>::shape_value (const unsigned int i, const
         return poly_two_ends.value(i,p);
     }else{
         // i in [0, 2*valence + 7];
-        throw std::runtime_error("please use FE_Catmull_Clark<dim, spacedim>::shape_values instead.");
+//        throw std::runtime_error("please use FE_Catmull_Clark<dim, spacedim>::shape_values instead.");
+        std::cout << "\n warning: inefficiently compute shape functions in irregular patch.\n";
+        return this->shape_values(p)[i];
     }
 }
 
@@ -320,7 +323,7 @@ get_data(
          const UpdateFlags update_flags,
          const Mapping<dim, spacedim> & /*mapping*/,
          const Quadrature<dim> & quadrature,
-         dealii::internal::FEValuesImplementation::FiniteElementRelatedData<dim,spacedim>& output_data
+         dealii::internal::FEValuesImplementation::FiniteElementRelatedData<dim,spacedim>& /*output_data*/
          ) const
 {
      //Create a default data object.
@@ -345,9 +348,11 @@ get_data(
         std::vector<double> values;
         std::vector<Tensor<1,dim>> derivatives;
         this->compute(p, values, derivatives);
-        for(unsigned int i = 0; i < this->dofs_per_cell;++i){
-            data.shape_values[i][iq] = values[i];
-            data.shape_derivatives[i][iq] = derivatives[i];
+        if (update_flags & update_values){
+            for (unsigned int k = 0; k < this->dofs_per_cell; ++k){
+                data.shape_values[k][iq] = values[k];
+                data.shape_derivatives[k][iq] = derivatives[k];
+            }
         }
     }
     
@@ -365,7 +370,20 @@ void FE_Catmull_Clark<dim,spacedim>::fill_fe_values(
                const typename Mapping<dim, spacedim>::InternalDataBase &mapping_internal,
                const dealii::internal::FEValuesImplementation::MappingRelatedData<dim,spacedim>& mapping_data,
                const typename FiniteElement<dim, spacedim>::InternalDataBase &fe_internal,
-               dealii::internal::FEValuesImplementation::FiniteElementRelatedData<dim,spacedim>& output_data) const {
+               dealii::internal::FEValuesImplementation::FiniteElementRelatedData<dim,spacedim>& output_data) const
+{
+    Assert(dynamic_cast<const InternalData *>(&fe_internal) != nullptr, ExcInternalError());
+    const InternalData &fe_data = static_cast<const InternalData &>(fe_internal);
+    const UpdateFlags  flags(fe_data.update_each);
+    const unsigned int n_q_points = quadrature.size();
+    Assert(!(flags & update_values) || fe_data.shape_values.n_rows() == this->dofs_per_cell, ExcDimensionMismatch(fe_data.shape_values.n_rows(), this->dofs_per_cell));
+    Assert(!(flags & update_values) || fe_data.shape_values.n_cols() == n_q_points, ExcDimensionMismatch(fe_data.shape_values.n_cols(), n_q_points));
+    if (flags & update_values){
+        
+    }
+    if (flags & update_gradients){
+        
+    }
     
 }
 
@@ -380,7 +398,7 @@ void FE_Catmull_Clark<dim,spacedim>::fill_fe_face_values(
   const dealii::internal::FEValuesImplementation::MappingRelatedData<dim, spacedim> &mapping_data,
   const typename FiniteElement<dim, spacedim>::InternalDataBase &fe_internal,
                                                         dealii::internal::FEValuesImplementation::FiniteElementRelatedData<dim,spacedim> &output_data) const{
-    
+
 }
 
 
@@ -396,7 +414,7 @@ void FE_Catmull_Clark<dim,spacedim>::fill_fe_subface_values(
   const dealii::internal::FEValuesImplementation::MappingRelatedData<dim,spacedim>& mapping_data,
   const typename FiniteElement<dim, spacedim>::InternalDataBase &fe_internal,
   dealii::internal::FEValuesImplementation::FiniteElementRelatedData<dim,spacedim> &output_data) const{
-    
+
 }
 
 
@@ -407,6 +425,54 @@ FE_Catmull_Clark<dim,spacedim>::operator==(const FiniteElement<dim, spacedim> &f
 }
 
 
+
+template<int dim, int spacedim> bool
+FE_Catmull_Clark<dim,spacedim>::is_dominating() const{
+    return dominate;
+}
+
+
+
+template <int dim, int spacedim>
+ FiniteElementDomination::Domination
+FE_Catmull_Clark<dim,spacedim>::compare_for_domination(const FiniteElement<dim, spacedim> &fe, const unsigned int codim) const
+{
+    if(codim == 0){
+        if (this->n_dofs_per_cell()> fe.n_dofs_per_cell()){
+            return FiniteElementDomination::this_element_dominates;
+        }
+        else{
+            return FiniteElementDomination::no_requirements;
+        }
+    }
+}
+
+template <int dim, int spacedim>
+ std::vector<std::pair<unsigned int, unsigned int>>
+ FE_Catmull_Clark<dim,spacedim>::hp_vertex_dof_identities(
+   const FiniteElement<dim, spacedim> &fe_other) const
+ {
+
+   if (dynamic_cast<const  FE_Catmull_Clark<dim,spacedim> *>(
+         &fe_other) != nullptr)
+     {
+       return std::vector<std::pair<unsigned int, unsigned int>>(
+         1, std::make_pair(0U, 0U));
+     }
+   else if (dynamic_cast<const FE_Nothing<dim> *>(&fe_other) != nullptr)
+     {
+       return std::vector<std::pair<unsigned int, unsigned int>>();
+     }
+   else if (fe_other.dofs_per_face == 0)
+     {
+       return std::vector<std::pair<unsigned int, unsigned int>>();
+     }
+   else
+     {
+       Assert(false, ExcNotImplemented());
+       return std::vector<std::pair<unsigned int, unsigned int>>();
+     }
+ }
 
 
 template class FE_Catmull_Clark<2,3>;

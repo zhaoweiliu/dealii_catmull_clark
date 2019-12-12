@@ -23,6 +23,9 @@
 
 #include <vector>
 
+#include <fstream>
+#include <iostream>
+
 
 DEAL_II_NAMESPACE_OPEN
 
@@ -457,6 +460,7 @@ namespace internal
           "This function can no longer be called after compressing the dof_indices array"));
       Assert(fe_index == active_fe_indices[obj_index],
              ExcMessage("FE index does not match that of the present cell"));
+      std::cout<< "n dof indices = "<<dof_indices.size()<<"\n";
       dof_indices[dof_offsets[obj_index] + local_index] = global_index;
     }
 
