@@ -3068,7 +3068,7 @@ namespace internal
                                  accessor.active_fe_index());
         for (unsigned int d = 0; d < accessor.get_fe().non_local_dofs_per_cell; ++d, ++index)
 
-            accessor.set_dof_index(index,
+            accessor.set_dof_index(d,
                                  local_dof_indices[index],
                                  accessor.active_fe_index());
         Assert(index == accessor.get_fe().dofs_per_cell, ExcInternalError());

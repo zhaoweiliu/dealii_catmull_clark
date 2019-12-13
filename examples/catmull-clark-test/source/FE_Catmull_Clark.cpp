@@ -18,7 +18,7 @@ DEAL_II_NAMESPACE_OPEN
 template <int dim, int spacedim>
 FE_Catmull_Clark<dim,spacedim>::FE_Catmull_Clark(const unsigned int val, const unsigned int n_components, const bool dominate)
 : FiniteElement<dim,spacedim> (
-    FiniteElementData<dim>({1,0,0,2*val+4},
+    FiniteElementData<dim>({1,0,0,(val == 1? 5:2*val+4)},
                             n_components,
                             3,
                             FiniteElementData<dim>::H2),
