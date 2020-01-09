@@ -61,32 +61,6 @@
 using namespace dealii;
 
 
-template<int dim, int spacedim>
-std::vector<std::set<Triangulation<2,3>::active_cell_iterator>> vector_of_cell_patches(const Triangulation<dim, spacedim> &tri){
-    std::multimap<unsigned int, Triangulation<2,3>::active_cell_iterator> vertex_to_cell_map;
-    for (Triangulation<2,3>::active_cell_iterator cell = tri.begin_active(); cell != tri.end();++cell )
-        for (unsigned int v=0; v < GeometryInfo<2>::vertices_per_cell; ++v)
-            vertex_to_cell_map.insert ({cell->vertex_index(v), cell});
-
-    std::vector<std::set<Triangulation<2,3>::active_cell_iterator>> vector_of_sets;
-
-    for (Triangulation<2,3>::active_cell_iterator cell = tri.begin_active(); cell!=tri.end();++cell)
-    {
-        std::set<Triangulation<2,3>::active_cell_iterator> cells_in_patch;
-        for (unsigned int v=0; v< GeometryInfo<2>::vertices_per_cell;++v){
-            std::multimap<unsigned int, Triangulation<2,3>::active_cell_iterator>::iterator map_it;
-            for (map_it = vertex_to_cell_map.begin();map_it!= vertex_to_cell_map.end();map_it++){
-                if(map_it->first == cell->vertex_index(v)){
-                    cells_in_patch.insert(map_it->second);
-                }
-            }
-        }
-        vector_of_sets.push_back (cells_in_patch);
-    }
-    return vector_of_sets;
-}
-
-
 
 int main()
 {
@@ -127,10 +101,10 @@ int main()
     auto indices_mapping = CatmullClark.dof_to_vert_indices_mapping();
     
     for(unsigned int i = 0; i < cell_dofs_vectors.size(); ++i){
-        std::cout << "Cell "<< i << " has dofs: " <<std::endl;
+        std::cout << "Cell "<< i << " has dofs (vertex index): " <<std::endl;
         for (unsigned int j = 0; j < cell_dofs_vectors[i].size(); ++j) {
             unsigned int iv = indices_mapping.find(cell_dofs_vectors[i][j])->second;
-            std::cout << cell_dofs_vectors[i][j] << "("<<iv+1<<")" << " ";
+            std::cout << cell_dofs_vectors[i][j] << "("<<iv<<")" << " ";
         }
         std::cout << std::endl;
     }
@@ -139,6 +113,7 @@ int main()
         dof_indices.resize(cell->get_fe().dofs_per_cell);
         new_dof_indices.resize(cell->get_fe().dofs_per_cell);
         cell->get_dof_indices(dof_indices);
+        cell->set_dof_indices(new_dof_indices);
         std::cout<< " n non local dofs per cells = "<<cell->get_fe().non_local_dofs_per_cell<<"\n";
         for (unsigned int i = 0; i < dof_indices.size(); ++i) {
             std::cout << dof_indices[i]<<" ";
@@ -149,14 +124,7 @@ int main()
             std::cout << cell->vertex_index(i)<<" ";
         }
         std::cout <<std::endl;
-//        cell->set_dof_indices(new_dof_indices);
-//        cell->get_dof_indices(dof_indices);
-//        for (unsigned int i = 0; i < dof_indices.size(); ++i) {
-//            std::cout << dof_indices[i]<<" ";
-//        }
-//        std::cout <<std::endl;
     }
-//    dof_handler.distribute_dofs(fe_collection);
 
     std::cout << "number of dofs = " << dof_handler.n_dofs()<<"\n";
 
