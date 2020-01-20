@@ -12,7 +12,7 @@
  * the top level directory of deal.II.
  *
  * ---------------------------------------------------------------------
-*/
+ */
 #include <deal.II/grid/tria.h>
 #include <deal.II/grid/grid_generator.h>
 #include <deal.II/grid/manifold_lib.h>
@@ -64,80 +64,90 @@ using namespace dealii;
 
 int main()
 {
-    const int dim = 2, spacedim = 3;
-    
-    Triangulation<dim,spacedim> mesh;
-    static SphericalManifold<dim,spacedim> surface_description;
+  const int dim = 2, spacedim = 3;
+
+  Triangulation<dim, spacedim>            mesh;
+  static SphericalManifold<dim, spacedim> surface_description;
+  {
+    Triangulation<spacedim> volume_mesh;
+    GridGenerator::half_hyper_ball(volume_mesh);
+    std::set<types::boundary_id> boundary_ids;
+    boundary_ids.insert(0);
+    GridGenerator::extract_boundary_mesh(volume_mesh, mesh, boundary_ids);
+  }
+
+  mesh.set_all_manifold_ids(0);
+  mesh.set_manifold(0, surface_description);
+  mesh.refine_global(2);
+
+  std::ofstream gout0("half_sphere.vtu");
+  std::ofstream gout1("half_sphere.msh");
+
+  GridOut gird_out;
+  gird_out.write_vtu(mesh, gout0);
+  gird_out.write_msh(mesh, gout1);
+
+  Catmull_Clark<dim, spacedim> CatmullClark(mesh);
+
+  hp::DoFHandler<dim, spacedim> &dof_handler = CatmullClark.ref_DoFHandler();
+
+  hp::FECollection<dim, spacedim> fe_collection =
+    CatmullClark.get_FECollection();
+
+  std::vector<types::global_dof_index> dof_indices;
+  std::vector<types::global_dof_index> new_dof_indices;
+
+  auto cell_dofs_vectors = CatmullClark.new_dofs_for_cells();
+  auto indices_mapping   = CatmullClark.dof_to_vert_indices_mapping();
+
+  for (unsigned int i = 0; i < cell_dofs_vectors.size(); ++i)
+    {
+      std::cout << "Cell " << i << " has dofs (vertex index): " << std::endl;
+      for (unsigned int j = 0; j < cell_dofs_vectors[i].size(); ++j)
         {
-            Triangulation<spacedim> volume_mesh;
-            GridGenerator::half_hyper_ball(volume_mesh);
-            std::set<types::boundary_id> boundary_ids;
-            boundary_ids.insert (0);
-            GridGenerator::extract_boundary_mesh (volume_mesh, mesh,
-                                                  boundary_ids);
+          unsigned int iv =
+            indices_mapping.find(cell_dofs_vectors[i][j])->second;
+          std::cout << cell_dofs_vectors[i][j] << "(" << iv << ")"
+                    << " ";
         }
-    
-    mesh.set_all_manifold_ids(0);
-    mesh.set_manifold (0, surface_description);
-    mesh.refine_global(2);
-    
-    std::ofstream gout0("half_sphere.vtu");
-    std::ofstream gout1("half_sphere.msh");
-
-    GridOut gird_out;
-    gird_out.write_vtu(mesh,gout0);
-    gird_out.write_msh(mesh,gout1);
-
-    Catmull_Clark<dim, spacedim> CatmullClark(mesh);
-    
-    hp::DoFHandler<dim,spacedim>& dof_handler = CatmullClark.ref_DoFHandler();
-        
-    hp::FECollection<dim,spacedim> fe_collection = CatmullClark.get_FECollection();
-
-    std::vector<types::global_dof_index> dof_indices;
-    std::vector<types::global_dof_index> new_dof_indices;
-    
-    auto cell_dofs_vectors = CatmullClark.new_dofs_for_cells();
-    auto indices_mapping = CatmullClark.dof_to_vert_indices_mapping();
-    
-    for(unsigned int i = 0; i < cell_dofs_vectors.size(); ++i){
-        std::cout << "Cell "<< i << " has dofs (vertex index): " <<std::endl;
-        for (unsigned int j = 0; j < cell_dofs_vectors[i].size(); ++j) {
-            unsigned int iv = indices_mapping.find(cell_dofs_vectors[i][j])->second;
-            std::cout << cell_dofs_vectors[i][j] << "("<<iv<<")" << " ";
-        }
-        std::cout << std::endl;
+      std::cout << std::endl;
     }
 
-    for(auto cell = dof_handler.begin_active(); cell!=dof_handler.end(); ++ cell){
-        dof_indices.resize(cell->get_fe().dofs_per_cell);
-        new_dof_indices.resize(cell->get_fe().dofs_per_cell);
-        cell->get_dof_indices(dof_indices);
-        cell->set_dof_indices(new_dof_indices);
-        std::cout<< " n non local dofs per cells = "<<cell->get_fe().non_local_dofs_per_cell<<"\n";
-        for (unsigned int i = 0; i < dof_indices.size(); ++i) {
-            std::cout << dof_indices[i]<<" ";
+  for (auto cell = dof_handler.begin_active(); cell != dof_handler.end();
+       ++cell)
+    {
+      dof_indices.resize(cell->get_fe().dofs_per_cell);
+      new_dof_indices.resize(cell->get_fe().dofs_per_cell);
+      cell->get_dof_indices(dof_indices);
+      cell->set_dof_indices(new_dof_indices);
+      std::cout << " n non local dofs per cells = "
+                << cell->get_fe().non_local_dofs_per_cell << "\n";
+      for (unsigned int i = 0; i < dof_indices.size(); ++i)
+        {
+          std::cout << dof_indices[i] << " ";
         }
-        std::cout <<std::endl;
-        std::cout<<"vertex index" <<std::endl;
-        for (unsigned int i = 0; i < 4; ++i) {
-            std::cout << cell->vertex_index(i)<<" ";
+      std::cout << std::endl;
+      std::cout << "vertex index" << std::endl;
+      for (unsigned int i = 0; i < 4; ++i)
+        {
+          std::cout << cell->vertex_index(i) << " ";
         }
-        std::cout <<std::endl;
+      std::cout << std::endl;
     }
 
-    std::cout << "number of dofs = " << dof_handler.n_dofs()<<"\n";
+  std::cout << "number of dofs = " << dof_handler.n_dofs() << "\n";
 
-    Point<dim> unit_point = {0.3,0.45};
-//    FE_Catmull_Clark<2,3> fe(5);
-    double sum=0.;
-    std::cout << "shape functions = \n";
-    for (unsigned int i = 0; i < fe_collection[2].n_dofs_per_cell(); ++i) {
-        auto value = fe_collection[2].shape_value(i, unit_point);
-        std::cout << value << " ";
-        sum+=value;
+  Point<dim> unit_point = {0.3, 0.45};
+  //    FE_Catmull_Clark<2,3> fe(5);
+  double sum = 0.;
+  std::cout << "shape functions = \n";
+  for (unsigned int i = 0; i < fe_collection[2].n_dofs_per_cell(); ++i)
+    {
+      auto value = fe_collection[2].shape_value(i, unit_point);
+      std::cout << value << " ";
+      sum += value;
     }
-    std::cout << "\n sum = "<< sum <<"\n";
-    
+  std::cout << "\n sum = " << sum << "\n";
+
   return 0;
 }
