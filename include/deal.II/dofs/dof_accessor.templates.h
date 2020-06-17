@@ -3066,12 +3066,53 @@ namespace internal
           accessor.set_dof_index(d,
                                  local_dof_indices[index],
                                  accessor.active_fe_index());
-        for (unsigned int d = 0; d < accessor.get_fe().non_local_dofs_per_cell; ++d, ++index)
-
-            accessor.set_dof_index(d,
-                                 local_dof_indices[index],
-                                 accessor.active_fe_index());
         Assert(index == accessor.get_fe().dofs_per_cell, ExcInternalError());
+      }
+
+
+
+      /**
+       * Implement setting non-local dof indices on a cell.
+       */
+      template <typename DoFHandlerType, bool level_dof_access>
+      static void
+      set_non_local_dof_indices(
+        const DoFCellAccessor<DoFHandlerType, level_dof_access> &accessor,
+        const std::vector<types::global_dof_index> &local_non_local_dof_indices)
+        {
+          Assert(accessor.has_children() == false, ExcInternalError());
+
+          const unsigned int d_offset = accessor.dof_handler->levels[accessor.present_level]->cell_cache_offsets[accessor.present_index];
+
+          const unsigned int non_local_dofs = accessor.get_fe().non_local_dofs_per_cell,
+                             n_dofs = accessor.get_fe().dofs_per_cell;
+
+          unsigned int index = 0;
+
+          for (unsigned int d = n_dofs - non_local_dofs; d < n_dofs; ++d, ++index)
+            accessor.dof_handler->levels[accessor.present_level]->cell_dof_indices_cache[d_offset + d] = local_non_local_dof_indices[index]; 
+          Assert(index == accessor.get_fe().non_local_dofs_per_cell, ExcInternalError());
+        }
+
+
+
+        /**
+         * Implement rearrange dof indices on a cell.
+         */
+      template <typename DoFHandlerType, bool level_dof_access>
+      static void
+      rearrange_local_dof_indices(const DoFCellAccessor<DoFHandlerType, level_dof_access> &accessor, const std::vector<unsigned int> dof_indices_new_order)
+      {
+        Assert(dof_indices_new_order.size() == accessor.get_fe().dofs_per_cell, ExcInternalError());
+
+        std::vector<types::global_dof_index> dof_indices(accessor.get_fe().dofs_per_cell);
+        accessor.get_dof_indices(dof_indices);
+
+        const unsigned int d_offset = accessor.dof_handler->levels[accessor.present_level]->cell_cache_offsets[accessor.present_index];
+        
+        for(unsigned int d = 0; d < dof_indices_new_order.size();++d)
+          accessor.dof_handler->levels[accessor.present_level]->cell_dof_indices_cache[d_offset + d] = dof_indices[dof_indices_new_order[d]];
+        
       }
 
 

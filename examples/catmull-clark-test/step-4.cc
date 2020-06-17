@@ -87,57 +87,32 @@ int main()
     GridOut gird_out;
     gird_out.write_vtu(mesh,gout0);
     gird_out.write_msh(mesh,gout1);
-
-    Catmull_Clark<dim, spacedim> CatmullClark(mesh);
     
-    hp::DoFHandler<dim,spacedim>& dof_handler = CatmullClark.ref_DoFHandler();
+    hp::DoFHandler<dim,spacedim> dof_handler(mesh);
         
-    hp::FECollection<dim,spacedim> fe_collection = CatmullClark.get_FECollection();
-
+    auto fe_collection = distribute_catmull_clark_dofs(dof_handler,1);
+    
+    DynamicSparsityPattern dynamic_sparsity_pattern(dof_handler.n_dofs());
+    AffineConstraints<double> constraints;
+    DoFTools::make_sparsity_pattern(dof_handler, dynamic_sparsity_pattern,constraints);
+    SparsityPattern sparsity_pattern;
+    sparsity_pattern.copy_from(dynamic_sparsity_pattern);
+    std::ofstream out("CC_sparsity_pattern.svg");
+    sparsity_pattern.print_svg(out);
+//
     std::vector<types::global_dof_index> dof_indices;
-    std::vector<types::global_dof_index> new_dof_indices;
     
-    auto cell_dofs_vectors = CatmullClark.new_dofs_for_cells();
-    auto indices_mapping = CatmullClark.dof_to_vert_indices_mapping();
-    
-    for(unsigned int i = 0; i < cell_dofs_vectors.size(); ++i){
-        std::cout << "Cell "<< i << " has dofs (vertex index): " <<std::endl;
-        for (unsigned int j = 0; j < cell_dofs_vectors[i].size(); ++j) {
-            unsigned int iv = indices_mapping.find(cell_dofs_vectors[i][j])->second;
-            std::cout << cell_dofs_vectors[i][j] << "("<<iv<<")" << " ";
-        }
-        std::cout << std::endl;
-    }
-
     for(auto cell = dof_handler.begin_active(); cell!=dof_handler.end(); ++ cell){
         dof_indices.resize(cell->get_fe().dofs_per_cell);
-        new_dof_indices.resize(cell->get_fe().dofs_per_cell);
         cell->get_dof_indices(dof_indices);
-        cell->set_dof_indices(new_dof_indices);
         std::cout<< " n non local dofs per cells = "<<cell->get_fe().non_local_dofs_per_cell<<"\n";
         for (unsigned int i = 0; i < dof_indices.size(); ++i) {
             std::cout << dof_indices[i]<<" ";
         }
         std::cout <<std::endl;
-        std::cout<<"vertex index" <<std::endl;
-        for (unsigned int i = 0; i < 4; ++i) {
-            std::cout << cell->vertex_index(i)<<" ";
-        }
-        std::cout <<std::endl;
     }
 
     std::cout << "number of dofs = " << dof_handler.n_dofs()<<"\n";
-
-    Point<dim> unit_point = {0.3,0.45};
-//    FE_Catmull_Clark<2,3> fe(5);
-    double sum=0.;
-    std::cout << "shape functions = \n";
-    for (unsigned int i = 0; i < fe_collection[2].n_dofs_per_cell(); ++i) {
-        auto value = fe_collection[2].shape_value(i, unit_point);
-        std::cout << value << " ";
-        sum+=value;
-    }
-    std::cout << "\n sum = "<< sum <<"\n";
     
   return 0;
 }

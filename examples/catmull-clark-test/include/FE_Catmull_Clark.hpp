@@ -18,6 +18,8 @@
 #include <deal.II/fe/fe_values.h>
 #include <deal.II/fe/fe_update_flags.h>
 #include <deal.II/fe/mapping.h>
+#include <deal.II/fe/fe_system.h>
+
 
 #include "polynomials_CubicBSpline.hpp"
 #include "polynomials_Catmull_Clark.hpp"

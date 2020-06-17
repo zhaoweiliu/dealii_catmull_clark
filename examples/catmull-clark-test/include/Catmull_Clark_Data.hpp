@@ -18,41 +18,46 @@
 #include <deal.II/dofs/dof_accessor.h>
 #include <deal.II/dofs/dof_tools.h>
 
-#include "FE_Catmull_Clark.hpp"
+#include <deal.II/hp/dof_handler.h>
 
+#include "FE_Catmull_Clark.hpp"
 
 DEAL_II_NAMESPACE_OPEN
 
-//typedef Triangulation<2,3>::active_cell_iterator cell_iterator;
+hp::FECollection<2, 3>
+distribute_catmull_clark_dofs(hp::DoFHandler<2, 3> &dof_handler, const unsigned int fe_dim);
 
 template<int dim, int spacedim>
-class Catmull_Clark{
+class CatmullClark{
 public:
-    Catmull_Clark(const Triangulation<dim, spacedim> &tri);
+    CatmullClark(hp::DoFHandler<dim, spacedim> &dh, const unsigned int fe_dim);
+    
+//    hp::DoFHandler<dim,spacedim>& ref_DoFHandler(){
+//        hp::DoFHandler<dim,spacedim>& df = dof_handler;
+//        return df;
+//    }
+    
+   void set_FECollection(hp::DoFHandler<dim, spacedim> &dof_handler, const unsigned int fe_dim);
     
     hp::FECollection<dim,spacedim> get_FECollection(){
         return fe_collection;
-    }
-    
-    hp::DoFHandler<dim,spacedim>& ref_DoFHandler(){
-        hp::DoFHandler<dim,spacedim>& df = dof_handler;
-        return df;
     }
     
     std::map<unsigned int, unsigned int> dof_to_vert_indices_mapping(){
         return indices_mapping;
     }
     
-    std::vector<std::vector<types::global_dof_index>> new_dofs_for_cells();
-    
+//    std::vector<std::vector<types::global_dof_index>> new_dofs_for_cells();
+    void new_dofs_for_cells(hp::DoFHandler<dim, spacedim> &dof_handler);
+
 private:
     std::vector<std::set<typename hp::DoFHandler<dim,spacedim>::active_cell_iterator>> cell_patch_vector;
     
-    std::vector<std::set<typename hp::DoFHandler<dim,spacedim>::active_cell_iterator>> cell_patches();
+    std::vector<std::set<typename hp::DoFHandler<dim,spacedim>::active_cell_iterator>> cell_patches(hp::DoFHandler<dim, spacedim> &dof_handler);
     
     std::map<unsigned int, typename hp::DoFHandler<dim,spacedim>::active_cell_iterator> ordering_cells_in_patch(typename hp::DoFHandler<dim,spacedim>::active_cell_iterator cell, std::set<typename hp::DoFHandler<dim,spacedim>::active_cell_iterator> cells_in_patch);
     
-    hp::DoFHandler<dim,spacedim> dof_handler;
+//    hp::DoFHandler<dim,spacedim> dof_handler();
     
     hp::FECollection<dim,spacedim> fe_collection;
     

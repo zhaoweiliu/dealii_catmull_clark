@@ -125,6 +125,42 @@ DoFCellAccessor<DoFHandlerType, lda>::set_dof_indices(
 
 
 template <typename DoFHandlerType, bool lda>
+void
+DoFCellAccessor<DoFHandlerType, lda>::set_non_local_dof_indices(
+  const std::vector<types::global_dof_index> &local_non_local_dof_indices)
+{
+  Assert(static_cast<unsigned int>(this->present_level) <
+           this->dof_handler->levels.size(),
+         ExcMessage("DoFHandler not initialized"));
+
+  Assert(this->dof_handler != nullptr, typename BaseClass::ExcInvalidObject());
+  
+  internal::DoFCellAccessorImplementation::Implementation::set_non_local_dof_indices(
+    *this, local_non_local_dof_indices);
+}
+
+
+
+template <typename DoFHandlerType, bool lda>
+void
+DoFCellAccessor<DoFHandlerType, lda>::rearrange_dof_indices(const std::vector<unsigned int> dof_indices_new_order)
+{
+  Assert(static_cast<unsigned int>(this->present_level) <
+           this->dof_handler->levels.size(),
+         ExcMessage("DoFHandler not initialized"));
+
+  Assert(this->dof_handler != nullptr, typename BaseClass::ExcInvalidObject());
+
+  const unsigned int non_local_dofs = this->get_fe().non_local_dofs_per_cell;
+
+  Assert(non_local_dofs != 0, ExcInternalError());
+
+  internal::DoFCellAccessorImplementation::Implementation::rearrange_local_dof_indices(*this, dof_indices_new_order);
+}
+
+
+
+template <typename DoFHandlerType, bool lda>
 TriaIterator<DoFCellAccessor<DoFHandlerType, lda>>
 DoFCellAccessor<DoFHandlerType, lda>::neighbor_child_on_subface(
   const unsigned int face,

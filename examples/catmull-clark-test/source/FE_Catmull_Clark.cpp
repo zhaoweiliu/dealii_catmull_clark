@@ -107,7 +107,7 @@ Tensor<1,dim> FE_Catmull_Clark<dim, spacedim>::shape_grad (const unsigned int i,
         // i in [0, 2*valence + 7];
         throw std::runtime_error("please use FE_Catmull_Clark<dim, spacedim>::shape_values instead.");
     }
-};
+}
 
 
 
@@ -214,7 +214,6 @@ void FE_Catmull_Clark<dim, spacedim>::compute(const Point< dim > &p, std::vector
         for (unsigned int i = 0; i < 9; ++i) {
             values[i] = poly_two_ends.value(i,p);
             grads[i] = poly_two_ends.grads(i,p);
-
         }
     }else{
         values.resize(2*valence + 8);
@@ -397,8 +396,8 @@ void FE_Catmull_Clark<dim,spacedim>::fill_fe_face_values(
   const typename Mapping<dim, spacedim>::InternalDataBase &mapping_internal,
   const dealii::internal::FEValuesImplementation::MappingRelatedData<dim, spacedim> &mapping_data,
   const typename FiniteElement<dim, spacedim>::InternalDataBase &fe_internal,
-                                                        dealii::internal::FEValuesImplementation::FiniteElementRelatedData<dim,spacedim> &output_data) const{
-
+                                                        dealii::internal::FEValuesImplementation::FiniteElementRelatedData<dim,spacedim> &output_data) const
+{
 }
 
 
