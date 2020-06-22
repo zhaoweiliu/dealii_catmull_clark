@@ -10,23 +10,23 @@
 DEAL_II_NAMESPACE_OPEN
 
 hp::FECollection<2, 3>
-distribute_catmull_clark_dofs(hp::DoFHandler<2, 3> &dof_handler, const unsigned int fe_dim)
+create_fecollection_and_distribute_catmull_clark_dofs(hp::DoFHandler<2, 3> &dof_handler, const unsigned int n_element)
 {
-    auto catmull_clark = std::make_shared <CatmullClark<2, 3>>(dof_handler,fe_dim);
+    auto catmull_clark = std::make_shared <CatmullClark<2, 3>>(dof_handler,n_element);
     return catmull_clark->get_FECollection();
 }
 
 template<int dim, int spacedim>
-CatmullClark<dim,spacedim>::CatmullClark(hp::DoFHandler<dim, spacedim> &dof_handler, const unsigned int fe_dim)
+CatmullClark<dim,spacedim>::CatmullClark(hp::DoFHandler<dim, spacedim> &dof_handler, const unsigned int n_element)
 {
     cell_patch_vector = cell_patches(dof_handler);
-    set_FECollection(dof_handler,fe_dim);
+    set_FECollection(dof_handler,n_element);
     dof_handler.distribute_dofs(fe_collection);
-    new_dofs_for_cells(dof_handler);
+    new_dofs_for_cells(dof_handler,n_element);
 }
 
 template<int dim, int spacedim>
-void CatmullClark<dim,spacedim>::set_FECollection(hp::DoFHandler<dim, spacedim> &dof_handler, const unsigned int fe_dim){
+void CatmullClark<dim,spacedim>::set_FECollection(hp::DoFHandler<dim, spacedim> &dof_handler, const unsigned int n_element){
     std::map<int, int> map_valence_to_fe_indices;
     int                i_fe = 0;
     for (auto cell = dof_handler.begin_active(); cell != dof_handler.end();
@@ -56,7 +56,7 @@ void CatmullClark<dim,spacedim>::set_FECollection(hp::DoFHandler<dim, spacedim> 
         {
             map_valence_to_fe_indices.insert(std::pair<int, int>(valence, i_fe));
             FE_Catmull_Clark<dim, spacedim> fe(valence);
-            fe_collection.push_back(FESystem<dim,spacedim>(fe,fe_dim));
+            fe_collection.push_back(FESystem<dim,spacedim>(fe,n_element));
             cell->set_active_fe_index(i_fe);
             ++i_fe;
         }
@@ -181,7 +181,6 @@ std::map<unsigned int, typename hp::DoFHandler<dim,spacedim>::active_cell_iterat
                     exv = v;
                     face_loop = vertex_face_loop(v);
                     val = valence[v];
-                    //                    std::cout << "valence = "<< val <<"\n";
                 }
             }
             std::array<unsigned int,3> vertices_regular = next_vertices(exv);
@@ -401,12 +400,11 @@ std::map<unsigned int, typename hp::DoFHandler<dim,spacedim>::active_cell_iterat
 
 template<int dim, int spacedim>
 //std::vector<std::vector<types::global_dof_index>>
-void CatmullClark<dim,spacedim>::new_dofs_for_cells(hp::DoFHandler<dim, spacedim> &dof_handler){
+void CatmullClark<dim,spacedim>::new_dofs_for_cells(hp::DoFHandler<dim, spacedim> &dof_handler, unsigned int n_element){
     std::vector<std::vector<unsigned int>> dof_indices_order_vector(dof_handler.get_triangulation().n_active_cells());
     for (auto cell = dof_handler.begin_active(); cell != dof_handler.end(); ++cell){
         std::map<unsigned int, typename hp::DoFHandler<dim,spacedim>::active_cell_iterator> cells = ordering_cells_in_patch(cell, cell_patch_vector[cell->active_cell_index()]);
         unsigned int valence;
-//        std::vector<types::global_dof_index> global_dof_indices(cell->get_fe().dofs_per_cell,0);
         std::vector<types::global_dof_index> cell_dof_indices(cell->get_fe().dofs_per_cell,0);
         std::vector<types::global_dof_index> non_local_dof_indices(cell->get_fe().non_local_dofs_per_cell,0);
         std::vector<unsigned int> reorder_indices(cell->get_fe().dofs_per_cell,0);
@@ -465,43 +463,36 @@ void CatmullClark<dim,spacedim>::new_dofs_for_cells(hp::DoFHandler<dim, spacedim
                     }
                 }
                 auto verts_id = verts_id_on_boundary(edges_on_boundary);
-//                global_dof_indices[0] = cell_dof_indices[verts_id[0]];
-//                global_dof_indices[1] = cell_dof_indices[verts_id[1]];
-//                global_dof_indices[4] = cell_dof_indices[verts_id[2]];
-//                global_dof_indices[3] = cell_dof_indices[verts_id[3]];
-                
-                reorder_indices[0] = verts_id[0];
-                reorder_indices[1] = verts_id[1];
-                reorder_indices[4] = verts_id[2];
-                reorder_indices[3] = verts_id[3];
-                reorder_indices[2] = 8;
-                reorder_indices[5] = 7;
-                reorder_indices[8] = 6;
-                reorder_indices[7] = 5;
-                reorder_indices[6] = 4;
-                
-                int face_local_id;
-                face_local_id = common_face_local_id(cells[0], cells[1]);
-                auto rotated_iv_1 = rotated_vertices(face_local_id);
-                cell_dof_indices.resize(cells[1]->get_fe().dofs_per_cell);
-                cells[1] -> get_dof_indices(cell_dof_indices);
-//                global_dof_indices[2] = cell_dof_indices[rotated_iv_1[2]];
-//                global_dof_indices[5] = cell_dof_indices[rotated_iv_1[3]];
-                non_local_dof_indices[4] = cell_dof_indices[rotated_iv_1[2]];
-                non_local_dof_indices[3] = cell_dof_indices[rotated_iv_1[3]];
-                
-                face_local_id = common_face_local_id(cells[0], cells[2]);
-                auto rotated_iv_2 = rotated_vertices(face_local_id);
-                cell_dof_indices.resize(cells[2]->get_fe().dofs_per_cell);
-                cells[2] -> get_dof_indices(cell_dof_indices);
-//                global_dof_indices[7] = cell_dof_indices[rotated_iv_2[2]];
-//                global_dof_indices[6] = cell_dof_indices[rotated_iv_2[3]];
-                non_local_dof_indices[1] = cell_dof_indices[rotated_iv_2[2]];
-                non_local_dof_indices[0] = cell_dof_indices[rotated_iv_2[3]];
-                
-//                global_dof_indices[8] = get_neighbour_dofs(cells[0],cells[3])[0];
-                non_local_dof_indices[2] = get_neighbour_dofs(cells[0],cells[3])[0];
-
+                for (unsigned int iel = 0; iel < n_element; ++iel)
+                {
+                    
+                    reorder_indices[0*n_element+iel] = verts_id[0]*n_element+iel;
+                    reorder_indices[1*n_element+iel] = verts_id[1]*n_element+iel;
+                    reorder_indices[4*n_element+iel] = verts_id[2]*n_element+iel;
+                    reorder_indices[3*n_element+iel] = verts_id[3]*n_element+iel;
+                    reorder_indices[2*n_element+iel] = 8*n_element+iel;
+                    reorder_indices[5*n_element+iel] = 7*n_element+iel;
+                    reorder_indices[8*n_element+iel] = 6*n_element+iel;
+                    reorder_indices[7*n_element+iel] = 5*n_element+iel;
+                    reorder_indices[6*n_element+iel] = 4*n_element+iel;
+                    
+                    int face_local_id;
+                    face_local_id = common_face_local_id(cells[0], cells[1]);
+                    auto rotated_iv_1 = rotated_vertices(face_local_id);
+                    cell_dof_indices.resize(cells[1]->get_fe().dofs_per_cell);
+                    cells[1] -> get_dof_indices(cell_dof_indices);
+                    non_local_dof_indices[4*n_element+iel] = cell_dof_indices[rotated_iv_1[2]*n_element+iel];
+                    non_local_dof_indices[3*n_element+iel] = cell_dof_indices[rotated_iv_1[3]*n_element+iel];
+                    
+                    face_local_id = common_face_local_id(cells[0], cells[2]);
+                    auto rotated_iv_2 = rotated_vertices(face_local_id);
+                    cell_dof_indices.resize(cells[2]->get_fe().dofs_per_cell);
+                    cells[2] -> get_dof_indices(cell_dof_indices);
+                    non_local_dof_indices[1*n_element+iel] = cell_dof_indices[rotated_iv_2[2]*n_element+iel];
+                    non_local_dof_indices[0*n_element+iel] = cell_dof_indices[rotated_iv_2[3]*n_element+iel];
+                    
+                    non_local_dof_indices[2*n_element+iel] = get_neighbour_dofs(cells[0],cells[3],n_element)[0*n_element+iel];
+                }
                 break;
             }
             case 6:{
@@ -548,57 +539,53 @@ void CatmullClark<dim,spacedim>::new_dofs_for_cells(hp::DoFHandler<dim, spacedim
                 for(unsigned int ie = 0; ie < GeometryInfo<2>::faces_per_cell; ++ie){
                     if(cells[0]->at_boundary(ie)){
                         auto rotated_iv = rotated_vertices(ie);
-//                        global_dof_indices[1] = cell_dof_indices[rotated_iv[0]];
-//                        global_dof_indices[2] = cell_dof_indices[rotated_iv[1]];
-//                        global_dof_indices[6] = cell_dof_indices[rotated_iv[2]];
-//                        global_dof_indices[5] = cell_dof_indices[rotated_iv[3]];
-                        reorder_indices[1] = rotated_iv[0];
-                        reorder_indices[2] = rotated_iv[1];
-                        reorder_indices[6] = rotated_iv[2];
-                        reorder_indices[5] = rotated_iv[3];
+                        for (unsigned int iel = 0; iel < n_element; ++iel){
+                            reorder_indices[1*n_element+iel] = rotated_iv[0]*n_element+iel;
+                            reorder_indices[2*n_element+iel] = rotated_iv[1]*n_element+iel;
+                            reorder_indices[6*n_element+iel] = rotated_iv[2]*n_element+iel;
+                            reorder_indices[5*n_element+iel] = rotated_iv[3]*n_element+iel;
+                        }
                     }
                 }
-                reorder_indices[0] = 9;
-                reorder_indices[3] = 8;
-                reorder_indices[4] = 10;
-                reorder_indices[7] = 7;
-                reorder_indices[8] = 11;
-                reorder_indices[9] = 4;
-                reorder_indices[10] = 5;
-                reorder_indices[11] = 6;
+                for (unsigned int iel = 0; iel < n_element; ++iel){
+                    reorder_indices[0*n_element+iel] = 9*n_element+iel;
+                    reorder_indices[3*n_element+iel] = 8*n_element+iel;
+                    reorder_indices[4*n_element+iel] = 10*n_element+iel;
+                    reorder_indices[7*n_element+iel] = 7*n_element+iel;
+                    reorder_indices[8*n_element+iel] = 11*n_element+iel;
+                    reorder_indices[9*n_element+iel] = 4*n_element+iel;
+                    reorder_indices[10*n_element+iel] = 5*n_element+iel;
+                    reorder_indices[11*n_element+iel] = 6*n_element+iel;
+                }
                 
                 int face_local_id;
                 face_local_id = common_face_local_id(cells[0], cells[1]);
                 auto rotated_iv_1 = rotated_vertices(face_local_id);
                 cell_dof_indices.resize(cells[1]->get_fe().dofs_per_cell);
                 cells[1] -> get_dof_indices(cell_dof_indices);
-//                global_dof_indices[3] = cell_dof_indices[rotated_iv_1[2]];
-//                global_dof_indices[7] = cell_dof_indices[rotated_iv_1[3]];
-                non_local_dof_indices[4] = cell_dof_indices[rotated_iv_1[2]];
-                non_local_dof_indices[3] = cell_dof_indices[rotated_iv_1[3]];
-                
+                for (unsigned int iel = 0; iel < n_element; ++iel){
+                    non_local_dof_indices[4*n_element+iel] = cell_dof_indices[rotated_iv_1[2]*n_element+iel];
+                    non_local_dof_indices[3*n_element+iel] = cell_dof_indices[rotated_iv_1[3]*n_element+iel];
+                }
                 face_local_id = common_face_local_id(cells[0], cells[2]);
                 auto rotated_iv_2 = rotated_vertices(face_local_id);
                 cell_dof_indices.resize(cells[2]->get_fe().dofs_per_cell);
                 cells[2] -> get_dof_indices(cell_dof_indices);
-//                global_dof_indices[10] = cell_dof_indices[rotated_iv_2[2]];
-//                global_dof_indices[9] = cell_dof_indices[rotated_iv_2[3]];
-                non_local_dof_indices[1] = cell_dof_indices[rotated_iv_2[2]];
-                non_local_dof_indices[0] = cell_dof_indices[rotated_iv_2[3]];
-                
+                for (unsigned int iel = 0; iel < n_element; ++iel){
+                    non_local_dof_indices[1*n_element+iel] = cell_dof_indices[rotated_iv_2[2]*n_element+iel];
+                    non_local_dof_indices[0*n_element+iel] = cell_dof_indices[rotated_iv_2[3]*n_element+iel];
+                }
                 face_local_id = common_face_local_id(cells[0], cells[3]);
                 auto rotated_iv_3 = rotated_vertices(face_local_id);
                 cell_dof_indices.resize(cells[3]->get_fe().dofs_per_cell);
                 cells[3] -> get_dof_indices(cell_dof_indices);
-//                global_dof_indices[4] = cell_dof_indices[rotated_iv_3[2]];
-//                global_dof_indices[0] = cell_dof_indices[rotated_iv_3[3]];
-                non_local_dof_indices[6] = cell_dof_indices[rotated_iv_3[2]];
-                non_local_dof_indices[5] = cell_dof_indices[rotated_iv_3[3]];
-                
-//                global_dof_indices[11] = get_neighbour_dofs(cells[0],cells[4])[0];
-//                global_dof_indices[8] = get_neighbour_dofs(cells[0],cells[5])[0];
-                non_local_dof_indices[2] = get_neighbour_dofs(cells[0],cells[4])[0];
-                non_local_dof_indices[7] = get_neighbour_dofs(cells[0],cells[5])[0];
+                for (unsigned int iel = 0; iel < n_element; ++iel){
+                    non_local_dof_indices[6*n_element+iel] = cell_dof_indices[rotated_iv_3[2]*n_element+iel];
+                    non_local_dof_indices[5*n_element+iel] = cell_dof_indices[rotated_iv_3[3]*n_element+iel];
+                    
+                    non_local_dof_indices[2*n_element+iel] = get_neighbour_dofs(cells[0],cells[4],n_element)[0*n_element+iel];
+                    non_local_dof_indices[7*n_element+iel] = get_neighbour_dofs(cells[0],cells[5],n_element)[0*n_element+iel];
+                }
                 break;
             }
             case 9:
@@ -659,41 +646,45 @@ void CatmullClark<dim,spacedim>::new_dofs_for_cells(hp::DoFHandler<dim, spacedim
                  |        |        |        |
                  8(12)----7(11)----6(10)----5(9)
                  */
-//                global_dof_indices[9] = cell_dof_indices[0];
-//                global_dof_indices[10] = cell_dof_indices[1];
-//                global_dof_indices[5] = cell_dof_indices[2];
-//                global_dof_indices[6] = cell_dof_indices[3];
-                std::vector<unsigned int> temp_indices;
-                temp_indices = get_neighbour_dofs(cells[0],cells[1]);
-//                global_dof_indices[8] = temp_indices[0];
-//                global_dof_indices[4] = temp_indices[1];
-                non_local_dof_indices[10] = temp_indices[0];
-                non_local_dof_indices[9] = temp_indices[1];
-                temp_indices = get_neighbour_dofs(cells[0],cells[2]);
-//                global_dof_indices[11] = temp_indices[0];
-//                global_dof_indices[7] = temp_indices[1];
-                non_local_dof_indices[3] = temp_indices[0];
-                non_local_dof_indices[4] = temp_indices[1];
-                temp_indices = get_neighbour_dofs(cells[0],cells[3]);
-//                global_dof_indices[13] = temp_indices[0];
-//                global_dof_indices[14] = temp_indices[1];
-                non_local_dof_indices[0] = temp_indices[0];
-                non_local_dof_indices[1] = temp_indices[1];
-                temp_indices = get_neighbour_dofs(cells[0],cells[4]);
-//                global_dof_indices[1] = temp_indices[0];
-//                global_dof_indices[2] = temp_indices[1];
-                non_local_dof_indices[7] = temp_indices[0];
-                non_local_dof_indices[6] = temp_indices[1];
+
+                auto temp_indices_01 = get_neighbour_dofs(cells[0],cells[1],n_element);
+                auto temp_indices_02 = get_neighbour_dofs(cells[0],cells[2],n_element);
+                auto temp_indices_03 = get_neighbour_dofs(cells[0],cells[3],n_element);
+                auto temp_indices_04 = get_neighbour_dofs(cells[0],cells[4],n_element);
+                for (unsigned int iel = 0; iel < n_element; ++iel){
+                non_local_dof_indices[10*n_element+iel] = temp_indices_01[0*n_element+iel];
+                non_local_dof_indices[9*n_element+iel] = temp_indices_01[1*n_element+iel];
                 
-//                global_dof_indices[12] = get_neighbour_dofs(cells[0],cells[5])[0];
-//                global_dof_indices[15] = get_neighbour_dofs(cells[0],cells[6])[0];
-//                global_dof_indices[0] = get_neighbour_dofs(cells[0],cells[7])[0];
-//                global_dof_indices[3] = get_neighbour_dofs(cells[0],cells[8])[0];
-                non_local_dof_indices[11] = get_neighbour_dofs(cells[0],cells[5])[0];
-                non_local_dof_indices[2] = get_neighbour_dofs(cells[0],cells[6])[0];
-                non_local_dof_indices[8] = get_neighbour_dofs(cells[0],cells[7])[0];
-                non_local_dof_indices[5] = get_neighbour_dofs(cells[0],cells[8])[0];
-                reorder_indices = {12,11,10,9,13,2,3,8,14,0,1,7,15,4,5,6};
+                non_local_dof_indices[3*n_element+iel] = temp_indices_02[0*n_element+iel];
+                non_local_dof_indices[4*n_element+iel] = temp_indices_02[1*n_element+iel];
+                
+                non_local_dof_indices[0*n_element+iel] = temp_indices_03[0*n_element+iel];
+                non_local_dof_indices[1*n_element+iel] = temp_indices_03[1*n_element+iel];
+                
+                non_local_dof_indices[7*n_element+iel] = temp_indices_04[0*n_element+iel];
+                non_local_dof_indices[6*n_element+iel] = temp_indices_04[1*n_element+iel];
+                
+                non_local_dof_indices[11*n_element+iel] = get_neighbour_dofs(cells[0],cells[5],n_element)[0*n_element+iel];
+                non_local_dof_indices[2*n_element+iel] = get_neighbour_dofs(cells[0],cells[6],n_element)[0*n_element+iel];
+                non_local_dof_indices[8*n_element+iel] = get_neighbour_dofs(cells[0],cells[7],n_element)[0*n_element+iel];
+                non_local_dof_indices[5*n_element+iel] = get_neighbour_dofs(cells[0],cells[8],n_element)[0*n_element+iel];
+                reorder_indices[0*n_element+iel] = 12 *n_element+iel;
+                reorder_indices[1*n_element+iel] = 11 *n_element+iel;
+                reorder_indices[2*n_element+iel] = 10 *n_element+iel;
+                reorder_indices[3*n_element+iel] = 9 *n_element+iel;
+                reorder_indices[4*n_element+iel] = 13 *n_element+iel;
+                reorder_indices[5*n_element+iel] = 2 *n_element+iel;
+                reorder_indices[6*n_element+iel] = 3 *n_element+iel;
+                reorder_indices[7*n_element+iel] = 8 *n_element+iel;
+                reorder_indices[8*n_element+iel] = 14 *n_element+iel;
+                reorder_indices[9*n_element+iel] = 0 *n_element+iel;
+                reorder_indices[10*n_element+iel] = 1 *n_element+iel;
+                reorder_indices[11*n_element+iel] = 7 *n_element+iel;
+                reorder_indices[12*n_element+iel] = 15 *n_element+iel;
+                reorder_indices[13*n_element+iel] = 4 *n_element+iel;
+                reorder_indices[14*n_element+iel] = 5 *n_element+iel;
+                reorder_indices[15*n_element+iel] = 6 *n_element+iel;
+                }
                 break;
             }
             default:
@@ -757,11 +748,11 @@ void CatmullClark<dim,spacedim>::new_dofs_for_cells(hp::DoFHandler<dim, spacedim
                 for (unsigned int i = 0; i<4; ++i){
                     unsigned int n = 0;
                     for (unsigned int icell = 0 ; icell < 2; ++icell ){
-                        std::vector<types::global_dof_index> icell_dof_indices(4,0);
+                        std::vector<types::global_dof_index> icell_dof_indices;
                         icell_dof_indices.resize(cells[icell+1]->get_fe().dofs_per_cell);
                         cells[icell+1] -> get_dof_indices(icell_dof_indices);
                         for(unsigned int j = 0; j<4; ++j){
-                            if(cell_dof_indices[i] == icell_dof_indices[j]){
+                            if(cell_dof_indices[i*n_element] == icell_dof_indices[j*n_element]){
                                 n += 1;
                             }
                         }
@@ -770,171 +761,171 @@ void CatmullClark<dim,spacedim>::new_dofs_for_cells(hp::DoFHandler<dim, spacedim
                         ex_vertex_index = i;
                     }
                 }
-//                global_dof_indices[0] = cell_dof_indices[ex_vertex_index];
-//                global_dof_indices[5] = cell_dof_indices[next_vertices(ex_vertex_index)[0]];
-//                global_dof_indices[4] = cell_dof_indices[next_vertices(ex_vertex_index)[1]];
-//                global_dof_indices[3] = cell_dof_indices[next_vertices(ex_vertex_index)[2]];
-                
                 
                 for (unsigned int ic = 1; ic < valence - 1; ++ic){
                     std::vector<types::global_dof_index> cell_dof_indices(4,0);
                     cell_dof_indices.resize(cells[ic]->get_fe().dofs_per_cell);
                     cells[ic] -> get_dof_indices(cell_dof_indices);
-                    int dia_dof_id = get_diagonal_dof_id_to_ex(cells[0], cells[ic], ex_vertex_index);
-//                    global_dof_indices[4+2*ic] = cell_dof_indices[dia_dof_id];
-                    non_local_dof_indices[2*ic] = cell_dof_indices[dia_dof_id];
-
-                    auto v = get_neighbour_dofs(cells[ic-1], cells[ic]);
-                    int on_face_dof;
-                    
-                    if (v[0] == cell_dof_indices[dia_dof_id]){
-                        on_face_dof =v[1];
-                    }else{
-                        on_face_dof = v[0];
+                    std::vector<unsigned int> dia_dof_id = get_diagonal_dof_id_to_ex(cells[0], cells[ic], ex_vertex_index, n_element);
+                    for (unsigned int iel = 0; iel < n_element; ++iel) {
+                        non_local_dof_indices[2*ic*n_element+iel] = cell_dof_indices[dia_dof_id[iel]];
                     }
-//                    global_dof_indices[5+2*ic] = on_face_dof;
-                    non_local_dof_indices[1+2*ic] = on_face_dof;
-
+                    
+                    auto v = get_neighbour_dofs(cells[ic-1], cells[ic],n_element);
+                    std::vector<unsigned int> on_face_dof(n_element);
+                    
+                    if (v[0] == cell_dof_indices[dia_dof_id[0]]){
+                        for (unsigned int iel = 0; iel < n_element; ++iel) {
+                            on_face_dof[iel] =v[1*n_element+iel];
+                        }
+                    }else{
+                        for (unsigned int iel = 0; iel < n_element; ++iel) {
+                            on_face_dof[iel] = v[0*n_element+iel];
+                        }
+                    }
+                    for (unsigned int iel = 0; iel < n_element; ++iel) {
+                        non_local_dof_indices[(1+2*ic)*n_element+iel] = on_face_dof[iel];
+                    }
                 }
                 cell_dof_indices.resize(cells[valence-1]->get_fe().dofs_per_cell);
                 cells[valence-1] -> get_dof_indices(cell_dof_indices);
                 
                 
-                int dia_dof_id = get_diagonal_dof_id_to_ex(cells[0], cells[valence-1], ex_vertex_index);
-//                global_dof_indices[2] = cell_dof_indices[dia_dof_id];
-                non_local_dof_indices[1] = cell_dof_indices[dia_dof_id];
-
-                auto v = get_neighbour_dofs(cells[0], cells[valence-1]);
-                int on_face_dof;
-                
-                if (v[0] == cell_dof_indices[dia_dof_id]){
-                    on_face_dof =v[1];
-                }else{
-                    on_face_dof = v[0];
+                std::vector<unsigned int> dia_dof_id = get_diagonal_dof_id_to_ex(cells[0], cells[valence-1], ex_vertex_index, n_element);
+                for (unsigned int iel = 0; iel < n_element; ++iel) {
+                    non_local_dof_indices[1*n_element+iel] = cell_dof_indices[dia_dof_id[iel]];
                 }
-//                global_dof_indices[1] = on_face_dof;
-                non_local_dof_indices[0] = on_face_dof;
+                auto v = get_neighbour_dofs(cells[0], cells[valence-1],n_element);
+                std::vector<unsigned int> on_face_dof(n_element);
+                
+                if (v[0] == cell_dof_indices[dia_dof_id[0]]){
+                    for (unsigned int iel = 0; iel < n_element; ++iel) {
+                        on_face_dof[iel] =v[1*n_element+iel];
+                    }
+                }else{
+                    for (unsigned int iel = 0; iel < n_element; ++iel) {
+                        on_face_dof[iel] = v[0*n_element+iel];
+                    }
+                }
+                for (unsigned int iel = 0; iel < n_element; ++iel) {
+                    non_local_dof_indices[0*n_element+iel] = on_face_dof[iel];
+                }
 
                 std::vector<std::vector<unsigned int>> dof_pairs(6);
-                dof_pairs[0] = get_neighbour_dofs(cells[1], cells[valence+2]);
-                dof_pairs[1] = get_neighbour_dofs(cells[0], cells[valence+1]);
-                dof_pairs[2] = get_neighbour_dofs(cells[valence+3], cells[valence]);
-                dof_pairs[3] = get_neighbour_dofs(cells[valence+1], cells[valence]);
-                dof_pairs[4] = get_neighbour_dofs(cells[0], cells[valence+3]);
-                dof_pairs[5] = get_neighbour_dofs(cells[valence-1], cells[valence+4]);
+                dof_pairs[0] = get_neighbour_dofs(cells[1], cells[valence+2],n_element);
+                dof_pairs[1] = get_neighbour_dofs(cells[0], cells[valence+1],n_element);
+                dof_pairs[2] = get_neighbour_dofs(cells[valence+3], cells[valence],n_element);
+                dof_pairs[3] = get_neighbour_dofs(cells[valence+1], cells[valence],n_element);
+                dof_pairs[4] = get_neighbour_dofs(cells[0], cells[valence+3],n_element);
+                dof_pairs[5] = get_neighbour_dofs(cells[valence-1], cells[valence+4],n_element);
                 
-                std::vector<unsigned int> dof_vec(2,0);
+                std::vector<unsigned int> dof_vec(2*n_element,0);
                 
                 for(unsigned int i = 0; i<2; ++i){
-                    unsigned int idof = dof_pairs[0][i];
+                    unsigned int idof = dof_pairs[0][i*n_element];
                     bool is_in = false;
                     for(unsigned int j = 0; j < 2; ++j){
-                        if (idof == dof_pairs[1][j]){
+                        if (idof == dof_pairs[1][j*n_element]){
                             is_in = true;
                         }
                     }
                     if (is_in == false){
-                        dof_vec[0] = idof;
-                    }else{
-                        dof_vec[1] = idof;
+                        for (unsigned int iel = 0; iel < n_element; ++iel) {
+                            dof_vec[0*n_element+iel] = dof_pairs[0][i*n_element+iel];
+                        }
+                    }
+                    else{
+                        for (unsigned int iel = 0; iel < n_element; ++iel) {
+                            dof_vec[1*n_element+iel] = dof_pairs[0][i*n_element+iel];
+                        }
                     }
                 }
                 
                 for(unsigned int ip = 1 ; ip < dof_pairs.size(); ++ip){
                     for(unsigned int i = 0; i<2; ++i){
-                        unsigned int idof = dof_pairs[ip][i];
+                        unsigned int idof = dof_pairs[ip][i*n_element];
                         bool is_in = false;
                         for (unsigned int j = 0; j < 2 ; ++j){
-                            if (idof == dof_pairs[ip-1][j]){
+                            if (idof == dof_pairs[ip-1][j*n_element]){
                                 is_in = true;
                             }
                         }
                         if (is_in == false){
-                            dof_vec.push_back(idof);
+                            for (unsigned int iel = 0; iel < n_element; ++iel) {
+                                dof_vec.push_back(dof_pairs[ip][i*n_element+iel]);
+                            }
                         }
                     }
                 }
                 
-//                global_dof_indices[2*valence+4] = dof_vec[0];
-//                global_dof_indices[2*valence+3] = dof_vec[1];
-//                global_dof_indices[2*valence+2] = dof_vec[2];
-//                global_dof_indices[2*valence+1] = dof_vec[3];
-//                global_dof_indices[2*valence+5] = dof_vec[4];
-//                global_dof_indices[2*valence+6] = dof_vec[5];
-//                global_dof_indices[2*valence+7] = dof_vec[6];
-                non_local_dof_indices[2*valence] = dof_vec[0];
-                non_local_dof_indices[2*valence-1] = dof_vec[1];
-                non_local_dof_indices[2*valence-2] = dof_vec[2];
-                non_local_dof_indices[2*valence-3] = dof_vec[3];
-                non_local_dof_indices[2*valence+1] = dof_vec[4];
-                non_local_dof_indices[2*valence+2] = dof_vec[5];
-                non_local_dof_indices[2*valence+3] = dof_vec[6];
-                
-                std::vector<types::global_dof_index> new_non_local_dof_indices(2*valence+4,0);
-//                new_global_dof_indices[0] = global_dof_indices[0];
+                for (unsigned int iel = 0; iel < n_element; ++iel) {
+                non_local_dof_indices[(2*valence)*n_element+iel] = dof_vec[0*n_element+iel];
+                non_local_dof_indices[(2*valence-1)*n_element+iel] = dof_vec[1*n_element+iel];
+                non_local_dof_indices[(2*valence-2)*n_element+iel] = dof_vec[2*n_element+iel];
+                non_local_dof_indices[(2*valence-3)*n_element+iel] = dof_vec[3*n_element+iel];
+                non_local_dof_indices[(2*valence+1)*n_element+iel] = dof_vec[4*n_element+iel];
+                non_local_dof_indices[(2*valence+2)*n_element+iel] = dof_vec[5*n_element+iel];
+                non_local_dof_indices[(2*valence+3)*n_element+iel] = dof_vec[6*n_element+iel];
+                }
+                std::vector<types::global_dof_index> new_non_local_dof_indices((2*valence+4)*n_element,0);
                 if(valence == 3){
-//                    new_global_dof_indices[1] = global_dof_indices[1];
-                    new_non_local_dof_indices[0] = non_local_dof_indices[0];
+                    for (unsigned int iel = 0; iel < n_element; ++iel) {
+                        new_non_local_dof_indices[0*n_element+iel] = non_local_dof_indices[0*n_element+iel];
+                    }
                 }
                 else{
 //                    new_global_dof_indices[1] = global_dof_indices[7];
 //                    new_global_dof_indices[7] = global_dof_indices[1];
-                    new_non_local_dof_indices[0] = non_local_dof_indices[3];
-                    new_non_local_dof_indices[3] = non_local_dof_indices[0];
+                    for (unsigned int iel = 0; iel < n_element; ++iel) {
+                    new_non_local_dof_indices[0*n_element+iel] = non_local_dof_indices[3*n_element+iel];
+                    new_non_local_dof_indices[3*n_element+iel] = non_local_dof_indices[0*n_element+iel];
+                    }
                     for(unsigned int i = 0; i < 2*valence-7; ++i){
-//                        new_global_dof_indices[i+8] = global_dof_indices[2*valence-i];
-                        new_non_local_dof_indices[i+4] = non_local_dof_indices[2*valence-4-i];
+                        for (unsigned int iel = 0; iel < n_element; ++iel) {
+                        new_non_local_dof_indices[(i+4)*n_element+iel] = non_local_dof_indices[(2*valence-4-i)*n_element+iel];
+                        }
                     }
                 }
-//                new_global_dof_indices[2] = global_dof_indices[6];
-//                new_global_dof_indices[3] = global_dof_indices[5];
-//                new_global_dof_indices[4] = global_dof_indices[4];
-//                new_global_dof_indices[5] = global_dof_indices[3];
-//                new_global_dof_indices[6] = global_dof_indices[2];
-//                new_global_dof_indices[2*valence+4] = global_dof_indices[2*valence+7];
-//                new_global_dof_indices[2*valence+3] = global_dof_indices[2*valence+6];
-//                new_global_dof_indices[2*valence+2] = global_dof_indices[2*valence+5];
-//                new_global_dof_indices[2*valence+1] = global_dof_indices[2*valence+1];
-//                new_global_dof_indices[2*valence+5] = global_dof_indices[2*valence+2];
-//                new_global_dof_indices[2*valence+6] = global_dof_indices[2*valence+3];
-//                new_global_dof_indices[2*valence+7] = global_dof_indices[2*valence+4];
-//                global_dof_indices = new_global_dof_indices;
-                new_non_local_dof_indices[1] = non_local_dof_indices[2];
-                new_non_local_dof_indices[2] = non_local_dof_indices[1];
-                new_non_local_dof_indices[2*valence] = non_local_dof_indices[2*valence+3];
-                new_non_local_dof_indices[2*valence-1] = non_local_dof_indices[2*valence+2];
-                new_non_local_dof_indices[2*valence-2] = non_local_dof_indices[2*valence+1];
-                new_non_local_dof_indices[2*valence-3] = non_local_dof_indices[2*valence-3];
-                new_non_local_dof_indices[2*valence+1] = non_local_dof_indices[2*valence-2];
-                new_non_local_dof_indices[2*valence+2] = non_local_dof_indices[2*valence-1];
-                new_non_local_dof_indices[2*valence+3] = non_local_dof_indices[2*valence];
+                for (unsigned int iel = 0; iel < n_element; ++iel) {
+                new_non_local_dof_indices[1*n_element+iel] = non_local_dof_indices[2*n_element+iel];
+                new_non_local_dof_indices[2*n_element+iel] = non_local_dof_indices[1*n_element+iel];
+                new_non_local_dof_indices[2*valence*n_element+iel] = non_local_dof_indices[(2*valence+3)*n_element+iel];
+                new_non_local_dof_indices[(2*valence-1)*n_element+iel] = non_local_dof_indices[(2*valence+2)*n_element+iel];
+                new_non_local_dof_indices[(2*valence-2)*n_element+iel] = non_local_dof_indices[(2*valence+1)*n_element+iel];
+                new_non_local_dof_indices[(2*valence-3)*n_element+iel] = non_local_dof_indices[(2*valence-3)*n_element+iel];
+                new_non_local_dof_indices[(2*valence+1)*n_element+iel] = non_local_dof_indices[(2*valence-2)*n_element+iel];
+                new_non_local_dof_indices[(2*valence+2)*n_element+iel] = non_local_dof_indices[(2*valence-1)*n_element+iel];
+                new_non_local_dof_indices[(2*valence+3)*n_element+iel] = non_local_dof_indices[(2*valence)*n_element+iel];
+                
+                reorder_indices[0*n_element+iel] = ex_vertex_index*n_element+iel;
+                reorder_indices[3*n_element+iel] = next_vertices(ex_vertex_index)[0]*n_element+iel;
+                reorder_indices[4*n_element+iel] = next_vertices(ex_vertex_index)[1]*n_element+iel;
+                reorder_indices[5*n_element+iel] = next_vertices(ex_vertex_index)[2]*n_element+iel;
+                reorder_indices[1*n_element+iel] = 4*n_element+iel;
+                reorder_indices[2*n_element+iel] = 5*n_element+iel;
+                }
+                
                 non_local_dof_indices = new_non_local_dof_indices;
                 
-                reorder_indices[0] = ex_vertex_index;
-                reorder_indices[3] = next_vertices(ex_vertex_index)[0];
-                reorder_indices[4] = next_vertices(ex_vertex_index)[1];
-                reorder_indices[5] = next_vertices(ex_vertex_index)[2];
-                reorder_indices[1] = 4;
-                reorder_indices[2] = 5;
                 for (unsigned int id = 6; id < 2 *valence +8 ; ++id) {
-                    reorder_indices[id] = id;
+                    for (unsigned int iel = 0; iel < n_element; ++iel) {
+                        reorder_indices[id*n_element+iel] = id*n_element+iel;
+                    }
                 }
                 break;
         }
-//        global_dof_vector_vector[cell->active_cell_index()]=global_dof_indices;
         cell->set_non_local_dof_indices(non_local_dof_indices);
         dof_indices_order_vector[cell->active_cell_index()] = reorder_indices;
     }
     for (auto cell = dof_handler.begin_active(); cell != dof_handler.end(); ++cell) {
         cell->rearrange_dof_indices(dof_indices_order_vector[cell->active_cell_index()]);
     }
-//    return global_dof_vector_vector;
 }
 
 
 
 template <int dim, int spacedim>
-std::vector<unsigned int> CatmullClark<dim,spacedim>::get_neighbour_dofs(typename hp::DoFHandler<dim,spacedim>::active_cell_iterator cell_0, typename hp::DoFHandler<dim,spacedim>::active_cell_iterator cell_neighbour){
+std::vector<unsigned int> CatmullClark<dim,spacedim>::get_neighbour_dofs(typename hp::DoFHandler<dim,spacedim>::active_cell_iterator cell_0, typename hp::DoFHandler<dim,spacedim>::active_cell_iterator cell_neighbour, unsigned int n_element){
     // left to right, up to down
     std::vector<types::global_dof_index> cell_0_indices(cell_0->get_fe().dofs_per_cell,0);
     std::vector<types::global_dof_index> cell_neighbour_indices(cell_neighbour->get_fe().dofs_per_cell,0);
@@ -950,21 +941,35 @@ std::vector<unsigned int> CatmullClark<dim,spacedim>::get_neighbour_dofs(typenam
      *       3
      */
     //find how many common DoFs the two cells share
-    int n_common = 0; std::vector<int> ith_dof(0);
+    int n_common = 0; std::vector<int> ith_vert(0);
     for(int i = 0; i<4; ++i){
-        for (int j = 0; j < 4; ++j) {
-            if (cell_neighbour_indices[i] == cell_0_indices[j]){
+        int ii = i*n_element;
+        for (int j = 0; j < 4; ++j){
+            int jj = j*n_element;
+            if (cell_neighbour_indices[ii] == cell_0_indices[jj]){
                 n_common += 1;
-                ith_dof.push_back(i);
+                ith_vert.push_back(i);
             }
         }
     }
     if (n_common == 2){
-        std::vector<unsigned int> dof_i = opposite_face_dofs(ith_dof[0], ith_dof[1]);
-        return {static_cast<unsigned int>(static_cast<int>(cell_neighbour_indices[dof_i[0]])),static_cast<unsigned int>(static_cast<int>(cell_neighbour_indices[dof_i[1]]))};
+        std::vector<unsigned int> vert_i = opposite_face_dofs(ith_vert[0], ith_vert[1]);
+        std::vector<unsigned int> neighbour_dofs_vec;
+        for (unsigned int iel = 0; iel < n_element; ++iel) {
+            neighbour_dofs_vec.push_back(static_cast<unsigned int>(static_cast<int>(cell_neighbour_indices[vert_i[0]*n_element + iel])));
+        }
+        for (unsigned int iel = 0; iel < n_element; ++iel) {
+            neighbour_dofs_vec.push_back(static_cast<unsigned int>(static_cast<int>(cell_neighbour_indices[vert_i[1]*n_element + iel])));
+        }
+        return neighbour_dofs_vec;
+        
     }else if(n_common == 1){
-        int dof_i = opposite_vertex_dofs(ith_dof[0]);
-        return {static_cast<unsigned int>(static_cast<int>(cell_neighbour_indices[dof_i]))};
+        int vert_i = opposite_vertex_dofs(ith_vert[0]);
+        std::vector<unsigned int> neighbour_dofs_vec;
+        for (unsigned int iel = 0; iel < n_element; ++iel) {
+            neighbour_dofs_vec.push_back(static_cast<unsigned int>(static_cast<int>(cell_neighbour_indices[vert_i*n_element + iel])));
+        }
+        return neighbour_dofs_vec;
     }else{
         throw std::runtime_error("The two cells have no common DoFs.");
     }
@@ -1214,19 +1219,21 @@ std::array<unsigned int,4> CatmullClark<dim,spacedim>::rotated_vertices(const un
 
 
 template <int dim, int spacedim>
-unsigned int CatmullClark<dim,spacedim>::get_diagonal_dof_id_to_ex(typename hp::DoFHandler<dim,spacedim>::active_cell_iterator cell_0, typename hp::DoFHandler<dim,spacedim>::active_cell_iterator cell_neighbour, unsigned int ex_index){
+std::vector<unsigned int> CatmullClark<dim,spacedim>::get_diagonal_dof_id_to_ex(typename hp::DoFHandler<dim,spacedim>::active_cell_iterator cell_0, typename hp::DoFHandler<dim,spacedim>::active_cell_iterator cell_neighbour, unsigned int ex_index, unsigned int n_element){
     std::vector<types::global_dof_index> cell_0_indices(cell_0->get_fe().dofs_per_cell,0);
     std::vector<types::global_dof_index> cell_neighbour_indices(cell_neighbour->get_fe().dofs_per_cell,0);
     cell_0->get_dof_indices(cell_0_indices);
     cell_neighbour->get_dof_indices(cell_neighbour_indices);
-    types::global_dof_index global_ex_index = cell_0_indices[ex_index];
-    unsigned int index;
+    types::global_dof_index global_ex_index = cell_0_indices[ex_index*n_element];
+    std::vector<unsigned int> indices;
     for(unsigned int i = 0; i<4; ++i){
-        if (cell_neighbour_indices[i] == global_ex_index){
-            index = opposite_vertex_dofs(i);
+        if (cell_neighbour_indices[i*n_element] == global_ex_index){
+            for(unsigned int iel = 0; iel < n_element; ++iel){
+                indices.push_back(opposite_vertex_dofs(i)*n_element+iel) ;
+            }
         }
     }
-    return index;
+    return indices;
 }
 
 

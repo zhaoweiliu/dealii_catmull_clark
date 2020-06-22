@@ -27,9 +27,12 @@
 #include <deal.II/dofs/dof_tools.h>
 #include <deal.II/fe/fe_values.h>
 #include <deal.II/fe/fe_system.h>
+#include <deal.II/fe/mapping_fe_field.h>
+
 #include <deal.II/base/quadrature_lib.h>
 #include <deal.II/base/function.h>
 #include <deal.II/numerics/vector_tools.h>
+
 #include <deal.II/numerics/matrix_tools.h>
 #include <deal.II/lac/vector.h>
 #include <deal.II/lac/full_matrix.h>
@@ -90,7 +93,21 @@ int main()
     
     hp::DoFHandler<dim,spacedim> dof_handler(mesh);
         
-    auto fe_collection = distribute_catmull_clark_dofs(dof_handler,1);
+    auto fe_collection = create_fecollection_and_distribute_catmull_clark_dofs(dof_handler,1);
+
+    std::vector<types::global_dof_index> dof_indices;
+    
+    for(auto cell = dof_handler.begin_active(); cell!=dof_handler.end(); ++ cell){
+        dof_indices.resize(cell->get_fe().dofs_per_cell);
+        cell->get_dof_indices(dof_indices);
+        std::cout<< "dofs per cells = "<<cell->get_fe().dofs_per_cell<<" cell_index = "<< cell->active_cell_index()<<"\n";
+        for (unsigned int i = 0; i < dof_indices.size(); ++i) {
+            std::cout << dof_indices[i]<<" ";
+        }
+        std::cout <<std::endl;
+    }
+
+    std::cout << "number of dofs = " << dof_handler.n_dofs()<<"\n";
     
     DynamicSparsityPattern dynamic_sparsity_pattern(dof_handler.n_dofs());
     AffineConstraints<double> constraints;
@@ -99,20 +116,6 @@ int main()
     sparsity_pattern.copy_from(dynamic_sparsity_pattern);
     std::ofstream out("CC_sparsity_pattern.svg");
     sparsity_pattern.print_svg(out);
-//
-    std::vector<types::global_dof_index> dof_indices;
-    
-    for(auto cell = dof_handler.begin_active(); cell!=dof_handler.end(); ++ cell){
-        dof_indices.resize(cell->get_fe().dofs_per_cell);
-        cell->get_dof_indices(dof_indices);
-        std::cout<< " n non local dofs per cells = "<<cell->get_fe().non_local_dofs_per_cell<<"\n";
-        for (unsigned int i = 0; i < dof_indices.size(); ++i) {
-            std::cout << dof_indices[i]<<" ";
-        }
-        std::cout <<std::endl;
-    }
-
-    std::cout << "number of dofs = " << dof_handler.n_dofs()<<"\n";
     
   return 0;
 }

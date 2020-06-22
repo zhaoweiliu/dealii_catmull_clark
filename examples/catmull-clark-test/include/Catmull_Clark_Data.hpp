@@ -25,19 +25,19 @@
 DEAL_II_NAMESPACE_OPEN
 
 hp::FECollection<2, 3>
-distribute_catmull_clark_dofs(hp::DoFHandler<2, 3> &dof_handler, const unsigned int fe_dim);
+create_fecollection_and_distribute_catmull_clark_dofs(hp::DoFHandler<2, 3> &dof_handler, const unsigned int n_element);
 
 template<int dim, int spacedim>
 class CatmullClark{
 public:
-    CatmullClark(hp::DoFHandler<dim, spacedim> &dh, const unsigned int fe_dim);
+    CatmullClark(hp::DoFHandler<dim, spacedim> &dh, const unsigned int n_element);
     
 //    hp::DoFHandler<dim,spacedim>& ref_DoFHandler(){
 //        hp::DoFHandler<dim,spacedim>& df = dof_handler;
 //        return df;
 //    }
     
-   void set_FECollection(hp::DoFHandler<dim, spacedim> &dof_handler, const unsigned int fe_dim);
+   void set_FECollection(hp::DoFHandler<dim, spacedim> &dof_handler, const unsigned int n_element);
     
     hp::FECollection<dim,spacedim> get_FECollection(){
         return fe_collection;
@@ -48,7 +48,7 @@ public:
     }
     
 //    std::vector<std::vector<types::global_dof_index>> new_dofs_for_cells();
-    void new_dofs_for_cells(hp::DoFHandler<dim, spacedim> &dof_handler);
+    void new_dofs_for_cells(hp::DoFHandler<dim, spacedim> &dof_handler, unsigned int n_element);
 
 private:
     std::vector<std::set<typename hp::DoFHandler<dim,spacedim>::active_cell_iterator>> cell_patch_vector;
@@ -63,7 +63,7 @@ private:
     
     std::map<unsigned int, unsigned int> indices_mapping;
         
-    std::vector<unsigned int> get_neighbour_dofs(typename hp::DoFHandler<dim,spacedim>::active_cell_iterator cell_0, typename hp::DoFHandler<dim,spacedim>::active_cell_iterator cell_neighbour);
+    std::vector<unsigned int> get_neighbour_dofs(typename hp::DoFHandler<dim,spacedim>::active_cell_iterator cell_0, typename hp::DoFHandler<dim,spacedim>::active_cell_iterator cell_neighbour, unsigned int n_element);
     
     std::vector<unsigned int> opposite_face_dofs(unsigned int i, unsigned int j);
 
@@ -85,7 +85,7 @@ private:
     
     std::array<unsigned int,4> rotated_vertices(const unsigned int local_face_id);
 
-    unsigned int get_diagonal_dof_id_to_ex(typename hp::DoFHandler<dim,spacedim>::active_cell_iterator cell_0, typename hp::DoFHandler<dim,spacedim>::active_cell_iterator cell_neighbour, unsigned int ex_index);
+    std::vector<unsigned int> get_diagonal_dof_id_to_ex(typename hp::DoFHandler<dim,spacedim>::active_cell_iterator cell_0, typename hp::DoFHandler<dim,spacedim>::active_cell_iterator cell_neighbour, unsigned int ex_index, unsigned int n_element);
 
 };
 
