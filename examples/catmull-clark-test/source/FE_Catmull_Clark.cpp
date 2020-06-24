@@ -335,7 +335,7 @@ get_data(
     const unsigned int n_q_points = quadrature.size();
     if (data.update_each & update_quadrature_points){
         data.shape_values.reinit(this->dofs_per_cell, n_q_points);
-    }
+    }  
     if (data.update_each &
       (update_covariant_transformation | update_contravariant_transformation |
        update_JxW_values | update_boundary_forms | update_normal_vectors |
@@ -383,7 +383,6 @@ void FE_Catmull_Clark<dim,spacedim>::fill_fe_values(
     if (flags & update_gradients){
         
     }
-    
 }
 
 
@@ -398,6 +397,7 @@ void FE_Catmull_Clark<dim,spacedim>::fill_fe_face_values(
   const typename FiniteElement<dim, spacedim>::InternalDataBase &fe_internal,
                                                         dealii::internal::FEValuesImplementation::FiniteElementRelatedData<dim,spacedim> &output_data) const
 {
+    
 }
 
 
@@ -412,21 +412,24 @@ void FE_Catmull_Clark<dim,spacedim>::fill_fe_subface_values(
   const typename Mapping<dim, spacedim>::InternalDataBase &mapping_internal,
   const dealii::internal::FEValuesImplementation::MappingRelatedData<dim,spacedim>& mapping_data,
   const typename FiniteElement<dim, spacedim>::InternalDataBase &fe_internal,
-  dealii::internal::FEValuesImplementation::FiniteElementRelatedData<dim,spacedim> &output_data) const{
-
-}
-
-
-
-template<int dim, int spacedim> bool
-FE_Catmull_Clark<dim,spacedim>::operator==(const FiniteElement<dim, spacedim> &fe) const{
+  dealii::internal::FEValuesImplementation::FiniteElementRelatedData<dim,spacedim> &output_data) const
+{
     
 }
 
 
 
 template<int dim, int spacedim> bool
-FE_Catmull_Clark<dim,spacedim>::is_dominating() const{
+FE_Catmull_Clark<dim,spacedim>::operator==(const FiniteElement<dim, spacedim> &fe) const
+{
+    
+}
+
+
+
+template<int dim, int spacedim> bool
+FE_Catmull_Clark<dim,spacedim>::is_dominating() const
+{
     return dominate;
 }
 

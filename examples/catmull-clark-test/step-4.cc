@@ -50,6 +50,7 @@
 #include "polynomials_Catmull_Clark.hpp"
 #include "FE_Catmull_Clark.hpp"
 #include "Catmull_Clark_Data.hpp"
+#include "CCmapping_fe_field.hpp"
 
 
 
@@ -92,8 +93,13 @@ int main()
     gird_out.write_msh(mesh,gout1);
     
     hp::DoFHandler<dim,spacedim> dof_handler(mesh);
+    hp::FECollection<dim,spacedim> fe_collection;
         
-    auto fe_collection = create_fecollection_and_distribute_catmull_clark_dofs(dof_handler,1);
+    create_fecollection_and_distribute_catmull_clark_dofs(dof_handler,fe_collection,1);
+    
+    const ComponentMask mask(spacedim, true);
+    
+    Vector<double> vec_values(dof_handler.n_dofs());
 
     std::vector<types::global_dof_index> dof_indices;
     

@@ -19,13 +19,15 @@
 #include <deal.II/dofs/dof_tools.h>
 
 #include <deal.II/hp/dof_handler.h>
+#include <deal.II/hp/mapping_collection.h>
 
 #include "FE_Catmull_Clark.hpp"
+#include "CCmapping_fe_field.hpp"
 
 DEAL_II_NAMESPACE_OPEN
 
-hp::FECollection<2, 3>
-create_fecollection_and_distribute_catmull_clark_dofs(hp::DoFHandler<2, 3> &dof_handler, const unsigned int n_element);
+void
+create_fecollection_and_distribute_catmull_clark_dofs(hp::DoFHandler<2, 3> &dof_handler, hp::FECollection<2, 3>& fe_collection, const unsigned int n_element);
 
 template<int dim, int spacedim>
 class CatmullClark{
@@ -47,7 +49,6 @@ public:
         return indices_mapping;
     }
     
-//    std::vector<std::vector<types::global_dof_index>> new_dofs_for_cells();
     void new_dofs_for_cells(hp::DoFHandler<dim, spacedim> &dof_handler, unsigned int n_element);
 
 private:
@@ -56,10 +57,10 @@ private:
     std::vector<std::set<typename hp::DoFHandler<dim,spacedim>::active_cell_iterator>> cell_patches(hp::DoFHandler<dim, spacedim> &dof_handler);
     
     std::map<unsigned int, typename hp::DoFHandler<dim,spacedim>::active_cell_iterator> ordering_cells_in_patch(typename hp::DoFHandler<dim,spacedim>::active_cell_iterator cell, std::set<typename hp::DoFHandler<dim,spacedim>::active_cell_iterator> cells_in_patch);
-    
-//    hp::DoFHandler<dim,spacedim> dof_handler();
-    
+        
     hp::FECollection<dim,spacedim> fe_collection;
+        
+    hp::MappingCollection<dim,spacedim> mapping_collection;
     
     std::map<unsigned int, unsigned int> indices_mapping;
         

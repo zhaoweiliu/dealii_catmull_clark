@@ -9,11 +9,11 @@
 
 DEAL_II_NAMESPACE_OPEN
 
-hp::FECollection<2, 3>
-create_fecollection_and_distribute_catmull_clark_dofs(hp::DoFHandler<2, 3> &dof_handler, const unsigned int n_element)
+void
+create_fecollection_and_distribute_catmull_clark_dofs(hp::DoFHandler<2, 3> &dof_handler, hp::FECollection<2, 3>& fe_collection, const unsigned int n_element)
 {
     auto catmull_clark = std::make_shared <CatmullClark<2, 3>>(dof_handler,n_element);
-    return catmull_clark->get_FECollection();
+    fe_collection = catmull_clark->get_FECollection();
 }
 
 template<int dim, int spacedim>
@@ -33,6 +33,8 @@ void CatmullClark<dim,spacedim>::set_FECollection(hp::DoFHandler<dim, spacedim> 
          ++cell)
     {
         int valence;
+        const ComponentMask mask(spacedim, true);
+        Vector<double> vec_values(dof_handler.n_dofs());
         switch (int ncell_in_patch =
                 cell_patch_vector[cell->active_cell_index()].size())
         {
@@ -56,7 +58,11 @@ void CatmullClark<dim,spacedim>::set_FECollection(hp::DoFHandler<dim, spacedim> 
         {
             map_valence_to_fe_indices.insert(std::pair<int, int>(valence, i_fe));
             FE_Catmull_Clark<dim, spacedim> fe(valence);
+            
+            CCMappingFEField<dim,spacedim,Vector<double>,hp::DoFHandler<2,3>> mapping(dof_handler, vec_values, i_fe, mask);
             fe_collection.push_back(FESystem<dim,spacedim>(fe,n_element));
+            mapping_collection.push_back(mapping);
+            
             cell->set_active_fe_index(i_fe);
             ++i_fe;
         }
