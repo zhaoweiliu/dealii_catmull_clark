@@ -12,7 +12,7 @@
  * the top level directory of deal.II.
  *
  * ---------------------------------------------------------------------
-*/
+ */
 #include <deal.II/grid/tria.h>
 #include <deal.II/grid/grid_generator.h>
 #include <deal.II/grid/manifold_lib.h>
@@ -42,6 +42,7 @@
 #include <deal.II/lac/precondition.h>
 
 #include <deal.II/hp/dof_handler.h>
+#include <deal.II/hp/fe_values.h>
 
 #include <deal.II/numerics/data_out.h>
 #include <fstream>
@@ -50,7 +51,7 @@
 #include "polynomials_Catmull_Clark.hpp"
 #include "FE_Catmull_Clark.hpp"
 #include "Catmull_Clark_Data.hpp"
-#include "CCmapping_fe_field.hpp"
+#include "MappingFEField_hp.hpp"
 
 
 
@@ -72,48 +73,90 @@ int main()
     
     Triangulation<dim,spacedim> mesh;
     static SphericalManifold<dim,spacedim> surface_description;
-        {
-            Triangulation<spacedim> volume_mesh;
-            GridGenerator::half_hyper_ball(volume_mesh);
-            std::set<types::boundary_id> boundary_ids;
-            boundary_ids.insert (0);
-            GridGenerator::extract_boundary_mesh (volume_mesh, mesh,
-                                                  boundary_ids);
-        }
+    {
+        Triangulation<spacedim> volume_mesh;
+        GridGenerator::half_hyper_ball(volume_mesh);
+        std::set<types::boundary_id> boundary_ids;
+        boundary_ids.insert (0);
+        GridGenerator::extract_boundary_mesh (volume_mesh, mesh,
+                                              boundary_ids);
+    }
     
     mesh.set_all_manifold_ids(0);
     mesh.set_manifold (0, surface_description);
-    mesh.refine_global(2);
+    mesh.refine_global(5);
     
     std::ofstream gout0("half_sphere.vtu");
     std::ofstream gout1("half_sphere.msh");
-
+    
     GridOut gird_out;
     gird_out.write_vtu(mesh,gout0);
     gird_out.write_msh(mesh,gout1);
     
     hp::DoFHandler<dim,spacedim> dof_handler(mesh);
     hp::FECollection<dim,spacedim> fe_collection;
-        
-    create_fecollection_and_distribute_catmull_clark_dofs(dof_handler,fe_collection,1);
+    hp::MappingCollection<dim,spacedim> mapping_collection;
+    hp::QCollection<dim> q_collection;
+    Vector<double> vec_values;
     
-    const ComponentMask mask(spacedim, true);
+    catmull_clark_create_fe_quadrature_and_mapping_collections_and_distribute_dofs(dof_handler,fe_collection,vec_values,mapping_collection,q_collection,3);
     
-    Vector<double> vec_values(dof_handler.n_dofs());
-
-    std::vector<types::global_dof_index> dof_indices;
     
-    for(auto cell = dof_handler.begin_active(); cell!=dof_handler.end(); ++ cell){
-        dof_indices.resize(cell->get_fe().dofs_per_cell);
-        cell->get_dof_indices(dof_indices);
-        std::cout<< "dofs per cells = "<<cell->get_fe().dofs_per_cell<<" cell_index = "<< cell->active_cell_index()<<"\n";
-        for (unsigned int i = 0; i < dof_indices.size(); ++i) {
-            std::cout << dof_indices[i]<<" ";
+    
+    hp::FEValues<dim,spacedim> hp_fe_values(mapping_collection, fe_collection, q_collection,update_values|update_quadrature_points|update_gradients|update_JxW_values);
+    
+    FullMatrix<double> cell_matrix;
+    Vector<double>     cell_rhs;
+    std::vector<types::global_dof_index> local_dof_indices;
+    
+    double area = 0;
+    
+    for (const auto &cell : dof_handler.active_cell_iterators())
+    {
+        const unsigned int dofs_per_cell = cell->get_fe().dofs_per_cell;
+        cell_matrix.reinit(dofs_per_cell, dofs_per_cell);
+        cell_matrix = 0;
+        cell_rhs.reinit(dofs_per_cell);
+        cell_rhs = 0;
+        hp_fe_values.reinit(cell);
+        const FEValues<dim,spacedim> &fe_values = hp_fe_values.get_present_fe_values();
+        std::vector<double> rhs_values(fe_values.n_quadrature_points);
+        for (unsigned int q_point = 0; q_point < fe_values.n_quadrature_points;
+             ++q_point)
+        {
+            area += fe_values.JxW(q_point);
+            double shape_sum = 0;
+            for (unsigned int i = 0; i < dofs_per_cell; ++i)
+            {
+                for (unsigned int j = 0; j < dofs_per_cell; ++j)
+                    cell_matrix(i, j) +=
+                    (fe_values.shape_value(i, q_point) * // phi_i(x_q)
+                     fe_values.shape_value(j, q_point) * // phi_j(x_q)
+                     fe_values.JxW(q_point));           // dx
+                //            cell_rhs(i) += (fe_values.shape_value(i, q_point) * // phi_i(x_q)
+                //                            rhs_values[q_point] *               // f(x_q)
+                //                            fe_values.JxW(q_point));            // dx
+            }
         }
-        std::cout <<std::endl;
+        local_dof_indices.resize(dofs_per_cell);
+        cell->get_dof_indices(local_dof_indices);
     }
-
-    std::cout << "number of dofs = " << dof_handler.n_dofs()<<"\n";
+    
+    std::cout << " area = " << area << std::endl;
+    
+    //    std::vector<types::global_dof_index> dof_indices;
+    //
+    //    for(auto cell = dof_handler.begin_active(); cell!=dof_handler.end(); ++ cell){
+    //        dof_indices.resize(cell->get_fe().dofs_per_cell);
+    //        cell->get_dof_indices(dof_indices);
+    //        std::cout<< "dofs per cells = "<<cell->get_fe().dofs_per_cell<<" cell_index = "<< cell->active_cell_index()<<"\n";
+    //        for (unsigned int i = 0; i < dof_indices.size(); ++i) {
+    //            std::cout << dof_indices[i]<<" ";
+    //        }
+    //        std::cout <<std::endl;
+    //    }
+    //
+    //    std::cout << "number of dofs = " << dof_handler.n_dofs()<<"\n";
     
     DynamicSparsityPattern dynamic_sparsity_pattern(dof_handler.n_dofs());
     AffineConstraints<double> constraints;
@@ -123,5 +166,5 @@ int main()
     std::ofstream out("CC_sparsity_pattern.svg");
     sparsity_pattern.print_svg(out);
     
-  return 0;
+    return 0;
 }

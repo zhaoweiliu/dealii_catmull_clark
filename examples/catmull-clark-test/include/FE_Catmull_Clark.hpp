@@ -56,7 +56,8 @@ public:
     
     std::vector<Tensor<1,dim>> shape_grads (const Point< dim > &p) const;
     
-    void compute(const Point< dim > &p, std::vector<double> &values,  std::vector<Tensor<1,dim>> &grads /*, add more if required*/) const;
+    void compute(const UpdateFlags update_flags,
+                 const Point< dim > &p, std::vector<double> &values,  std::vector<Tensor<1,dim>> &grads /*, add more if required*/) const;
 
     virtual void
     fill_fe_values(
@@ -108,11 +109,11 @@ public:
     
     FiniteElementDomination::Domination
     compare_for_domination(const FiniteElement<dim, spacedim> &fe,
-                           const unsigned int codim) const;
+                           const unsigned int codim) const override;
     
     std::vector<std::pair<unsigned int, unsigned int>>
     hp_vertex_dof_identities(
-                             const FiniteElement<dim, spacedim> &fe_other) const;
+                             const FiniteElement<dim, spacedim> &fe_other) const override;
     
     class InternalData : public FiniteElement<dim,spacedim>::InternalDataBase
     {

@@ -105,7 +105,8 @@ Tensor<1,dim> FE_Catmull_Clark<dim, spacedim>::shape_grad (const unsigned int i,
         return poly_two_ends.grads(i,p);
     }else{
         // i in [0, 2*valence + 7];
-        throw std::runtime_error("please use FE_Catmull_Clark<dim, spacedim>::shape_values instead.");
+        std::cout << "\n warning: inefficiently compute shape functions in irregular patch.\n";
+        return this->shape_grads(p)[i];
     }
 }
 
@@ -196,8 +197,8 @@ std::vector<Tensor<1, dim>> FE_Catmull_Clark<dim, spacedim>::shape_grads (const 
             Subd_matrix.Tvmult(grad1,grad1_reg);
             Subd_matrix.Tvmult(grad2,grad2_reg);
             for (unsigned int i = 0; i < 2*valence+8; ++i) {
-                shape_grad_vectors[i][0] = grad1_reg[i] * jac;
-                shape_grad_vectors[i][1] = grad2_reg[i] * jac;
+                shape_grad_vectors[i][0] = grad1[i] * jac;
+                shape_grad_vectors[i][1] = grad2[i] * jac;
             }
         }
         return shape_grad_vectors;
@@ -207,55 +208,85 @@ std::vector<Tensor<1, dim>> FE_Catmull_Clark<dim, spacedim>::shape_grads (const 
 
 
 template<int dim, int spacedim>
-void FE_Catmull_Clark<dim, spacedim>::compute(const Point< dim > &p, std::vector<double> &values,  std::vector<Tensor<1,dim>> &grads /*, add more if required*/) const{
-    if (valence == 1) {
-        values.resize(9);
-        grads.resize(9);
-        for (unsigned int i = 0; i < 9; ++i) {
-            values[i] = poly_two_ends.value(i,p);
-            grads[i] = poly_two_ends.grads(i,p);
-        }
-    }else{
-        values.resize(2*valence + 8);
-        grads.resize(2*valence + 8);
-        if (valence == 4){
-            for (unsigned int i = 0; i < 16; ++i)
-            {
-                values[i] = poly_reg.value(i,p);
-                grads[i] = poly_reg.grads(i,p);
+void FE_Catmull_Clark<dim, spacedim>::compute(const UpdateFlags update_flags, const Point< dim > &p, std::vector<double> &values,  std::vector<Tensor<1,dim>> &grads /*, add more if required*/) const{
+    if (update_flags & update_values){
+        if (valence == 1) {
+            values.resize(9);
+            for (unsigned int i = 0; i < 9; ++i) {
+                values[i] = poly_two_ends.value(i,p);
+            }
+        }else{
+            values.resize(2*valence + 8);
+            if (valence == 4){
+                for (unsigned int i = 0; i < 16; ++i)
+                {
+                    values[i] = poly_reg.value(i,p);
+                }
+            }
+            else if(valence == 2){
+                for (unsigned int i = 0; i < 12; ++i)
+                {
+                    values[i] = poly_one_end.value(i,p);
+                }
+            }
+            else {
+                Vector<double> shape_vectors_reg(16);
+                Vector<double> shape_vectors_result(2*valence+8);
+                
+                Point<dim> p_mapped;
+                double jac;
+                FullMatrix<double> Subd_matrix = compute_subd_matrix(p, p_mapped, jac);
+                for (unsigned int i = 0; i < 16; ++i)
+                {
+                    shape_vectors_reg[i] = poly_reg.value(i,p_mapped);
+                }
+                Subd_matrix.Tvmult(shape_vectors_result,shape_vectors_reg);
+                for (unsigned int i = 0; i < 2*valence+8; ++i) {
+                    values[i] = shape_vectors_result[i];
+                }
             }
         }
-        else if(valence == 2){
-            for (unsigned int i = 0; i < 12; ++i)
-            {
-                values[i] = poly_one_end.value(i,p);
-                grads[i] = poly_one_end.grads(i,p);
+    }
+    if (update_flags & update_gradients){
+        if (valence == 1) {
+            grads.resize(9);
+            for (unsigned int i = 0; i < 9; ++i) {
+                grads[i] = poly_two_ends.grads(i,p);
             }
-        }
-        else {
-            Vector<double> shape_vectors_reg(16);
-            Vector<double> shape_vectors_result(2*valence+8);
-            Vector<double> grad1_reg(16);
-            Vector<double> grad2_reg(16);
-            
-            Vector<double> grad1(2*valence+8);
-            Vector<double> grad2(2*valence+8);
-            Point<dim> p_mapped;
-            double jac;
-            FullMatrix<double> Subd_matrix = compute_subd_matrix(p, p_mapped, jac);
-            for (unsigned int i = 0; i < 16; ++i)
-            {
-                shape_vectors_reg[i] = poly_reg.value(i,p_mapped);
-                grad1_reg[i] = poly_reg.grads(i,p_mapped)[0];
-                grad2_reg[i] = poly_reg.grads(i,p_mapped)[1];
+        }else{
+            grads.resize(2*valence + 8);
+            if (valence == 4){
+                for (unsigned int i = 0; i < 16; ++i)
+                {
+                    grads[i] = poly_reg.grads(i,p);
+                }
             }
-            Subd_matrix.Tvmult(shape_vectors_result,shape_vectors_reg);
-            Subd_matrix.Tvmult(grad1,grad1_reg);
-            Subd_matrix.Tvmult(grad2,grad2_reg);
-            for (unsigned int i = 0; i < 2*valence+8; ++i) {
-                values[i] = shape_vectors_result[i];
-                grads[i][0] = grad1_reg[i] * jac;
-                grads[i][1] = grad2_reg[i] * jac;
+            else if(valence == 2){
+                for (unsigned int i = 0; i < 12; ++i)
+                {
+                    grads[i] = poly_one_end.grads(i,p);
+                }
+            }
+            else {
+                Vector<double> grad1_reg(16);
+                Vector<double> grad2_reg(16);
+                
+                Vector<double> grad1(2*valence+8);
+                Vector<double> grad2(2*valence+8);
+                Point<dim> p_mapped;
+                double jac;
+                FullMatrix<double> Subd_matrix = compute_subd_matrix(p, p_mapped, jac);
+                for (unsigned int i = 0; i < 16; ++i)
+                {
+                    grad1_reg[i] = poly_reg.grads(i,p_mapped)[0];
+                    grad2_reg[i] = poly_reg.grads(i,p_mapped)[1];
+                }
+                Subd_matrix.Tvmult(grad1,grad1_reg);
+                Subd_matrix.Tvmult(grad2,grad2_reg);
+                for (unsigned int i = 0; i < 2*valence+8; ++i) {
+                    grads[i][0] = grad1[i] * jac;
+                    grads[i][1] = grad2[i] * jac;
+                }
             }
         }
     }
@@ -333,23 +364,27 @@ get_data(
     data.update_each = requires_update_flags(update_flags);
     std::vector<Point<dim>> qpts = quadrature.get_points();
     const unsigned int n_q_points = quadrature.size();
-    if (data.update_each & update_quadrature_points){
+    if (data.update_each & update_values| update_quadrature_points){
         data.shape_values.reinit(this->dofs_per_cell, n_q_points);
     }  
     if (data.update_each &
       (update_covariant_transformation | update_contravariant_transformation |
        update_JxW_values | update_boundary_forms | update_normal_vectors |
        update_jacobians | update_jacobian_grads | update_inverse_jacobians))
-    data.shape_derivatives.reinit(this->dofs_per_cell, n_q_points);;
+        data.shape_derivatives.reinit(this->dofs_per_cell, n_q_points);;
     
     for (unsigned int iq = 0; iq < n_q_points; ++iq) {
         Point<dim> p = qpts[iq];
         std::vector<double> values;
         std::vector<Tensor<1,dim>> derivatives;
-        this->compute(p, values, derivatives);
+        this->compute(update_flags, p, values, derivatives);
         if (update_flags & update_values){
             for (unsigned int k = 0; k < this->dofs_per_cell; ++k){
                 data.shape_values[k][iq] = values[k];
+            }
+        }
+        if (update_flags & update_gradients){
+            for (unsigned int k = 0; k < this->dofs_per_cell; ++k){
                 data.shape_derivatives[k][iq] = derivatives[k];
             }
         }
@@ -375,13 +410,19 @@ void FE_Catmull_Clark<dim,spacedim>::fill_fe_values(
     const InternalData &fe_data = static_cast<const InternalData &>(fe_internal);
     const UpdateFlags  flags(fe_data.update_each);
     const unsigned int n_q_points = quadrature.size();
+        
     Assert(!(flags & update_values) || fe_data.shape_values.n_rows() == this->dofs_per_cell, ExcDimensionMismatch(fe_data.shape_values.n_rows(), this->dofs_per_cell));
     Assert(!(flags & update_values) || fe_data.shape_values.n_cols() == n_q_points, ExcDimensionMismatch(fe_data.shape_values.n_cols(), n_q_points));
+    
     if (flags & update_values){
-        
+        for (unsigned int k = 0; k < this->dofs_per_cell; ++k){
+            output_data.shape_values= fe_data.shape_values;
+        }
     }
     if (flags & update_gradients){
-        
+        for (unsigned int k = 0; k < this->dofs_per_cell; ++k){
+            
+        }
     }
 }
 
@@ -475,6 +516,7 @@ template <int dim, int spacedim>
        return std::vector<std::pair<unsigned int, unsigned int>>();
      }
  }
+
 
 
 template class FE_Catmull_Clark<2,3>;

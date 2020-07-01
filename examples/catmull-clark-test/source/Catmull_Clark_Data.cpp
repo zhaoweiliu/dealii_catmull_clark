@@ -9,33 +9,91 @@
 
 DEAL_II_NAMESPACE_OPEN
 
+//void
+//catmull_clark_create_fecollection_and_distribute_dofs(hp::DoFHandler<2, 3> &dof_handler, hp::FECollection<2, 3>& fe_collection, const unsigned int n_element)
+//{
+//    auto catmull_clark = std::make_shared <CatmullClark<2, 3>>(dof_handler,n_element);
+//    fe_collection = catmull_clark->get_FECollection();
+//}
+
+
+
 void
-create_fecollection_and_distribute_catmull_clark_dofs(hp::DoFHandler<2, 3> &dof_handler, hp::FECollection<2, 3>& fe_collection, const unsigned int n_element)
-{
-    auto catmull_clark = std::make_shared <CatmullClark<2, 3>>(dof_handler,n_element);
+catmull_clark_create_fe_quadrature_and_mapping_collections_and_distribute_dofs(hp::DoFHandler<2, 3> &dof_handler, hp::FECollection<2, 3>& fe_collection,Vector<double> &vec_values, hp::MappingCollection<2,3>& mapping_collection, hp::QCollection<2>& q_collection, const unsigned int n_element){
+    auto catmull_clark = std::make_shared <CatmullClark<2, 3>>(dof_handler,vec_values, n_element);
     fe_collection = catmull_clark->get_FECollection();
+    mapping_collection = catmull_clark->get_MappingCollection();
+    q_collection = catmull_clark->get_QCollection();
 }
 
+
+
 template<int dim, int spacedim>
-CatmullClark<dim,spacedim>::CatmullClark(hp::DoFHandler<dim, spacedim> &dof_handler, const unsigned int n_element)
+Quadrature<dim>
+CatmullClark<dim,spacedim>:: get_adaptive_quadrature(int L, Quadrature<2> qpts){
+    std::vector<Point<dim>> aqpts;
+    std::vector<double> wts;
+    std::vector<Point<dim>> gauss_pts = qpts.get_points();
+    std::vector<double> gauss_wts = qpts.get_weights();
+    for(int i = 1; i < L+1; ++i){
+        for (unsigned int iq = 0; iq < gauss_pts.size(); ++iq) {
+            aqpts.push_back ({gauss_pts[iq][0] * pow(0.5, i) ,gauss_pts[iq][1] * pow(0.5, i) + pow(0.5, i)});
+            wts.push_back(gauss_wts[iq] * pow(0.25, i));
+            aqpts.push_back ({gauss_pts[iq][0] * pow(0.5, i) + pow(0.5, i),gauss_pts[iq][1] * pow(0.5, i) + pow(0.5, i)});
+            wts.push_back(gauss_wts[iq] * pow(0.25, i));
+            aqpts.push_back ({gauss_pts[iq][0] * pow(0.5, i) + pow(0.5, i),gauss_pts[iq][1] * pow(0.5, i)});
+            wts.push_back(gauss_wts[iq] * pow(0.25, i));
+        }
+    }
+    
+    const QGauss<dim> mqpt(2);
+    std::vector<Point<dim>> gpts = mqpt.get_points();
+    for (unsigned int iq = 0; iq < mqpt.size(); ++iq){
+    aqpts.push_back({gpts[iq][0] * pow(0.5, L),gpts[iq][1] * pow(0.5, L)});
+    wts.push_back(mqpt.get_weights()[iq] * pow(0.25, L));
+    }
+    return {aqpts,wts};
+}
+
+
+
+template<int dim, int spacedim>
+CatmullClark<dim,spacedim>::CatmullClark(hp::DoFHandler<dim, spacedim> &dof_handler,Vector<double> &vec_values, const unsigned int n_element)
 {
     cell_patch_vector = cell_patches(dof_handler);
     set_FECollection(dof_handler,n_element);
     dof_handler.distribute_dofs(fe_collection);
     new_dofs_for_cells(dof_handler,n_element);
+    
+    vec_values.reinit(dof_handler.n_dofs());
+    auto vertices = dof_handler.get_triangulation().get_vertices();
+
+    for (unsigned int v_id = 0; v_id < indices_mapping.size(); ++v_id)
+    {
+        for (unsigned int j = 0; j < n_element;++j)
+        {
+            unsigned int first_dof_id = indices_mapping.find(v_id)->second;
+            vec_values[first_dof_id + j] = vertices[v_id][j];
+        }
+    }
+    
+    set_MappingCollection(dof_handler,vec_values,n_element);
 }
+
+
 
 template<int dim, int spacedim>
 void CatmullClark<dim,spacedim>::set_FECollection(hp::DoFHandler<dim, spacedim> &dof_handler, const unsigned int n_element){
-    std::map<int, int> map_valence_to_fe_indices;
-    int                i_fe = 0;
+    std::map<unsigned int, unsigned int> map_valence_to_fe_indices;
+    unsigned int                i_fe = 0;
+    QGauss<dim> qpts(2);
+    auto qpts_irreg = get_adaptive_quadrature(5,qpts);
+//    auto qpts_irreg = qpts;
     for (auto cell = dof_handler.begin_active(); cell != dof_handler.end();
          ++cell)
     {
-        int valence;
-        const ComponentMask mask(spacedim, true);
-        Vector<double> vec_values(dof_handler.n_dofs());
-        switch (int ncell_in_patch =
+        unsigned int valence;
+        switch (unsigned int ncell_in_patch =
                 cell_patch_vector[cell->active_cell_index()].size())
         {
             case 4:
@@ -48,7 +106,7 @@ void CatmullClark<dim,spacedim>::set_FECollection(hp::DoFHandler<dim, spacedim> 
                 valence = ncell_in_patch - 5;
                 break;
         }
-        std::map<int, int>::iterator iter_fe_valence;
+        std::map<unsigned int, unsigned int>::iterator iter_fe_valence;
         iter_fe_valence = map_valence_to_fe_indices.find(valence);
         if (iter_fe_valence != map_valence_to_fe_indices.end())
         {
@@ -56,16 +114,34 @@ void CatmullClark<dim,spacedim>::set_FECollection(hp::DoFHandler<dim, spacedim> 
         }
         else
         {
-            map_valence_to_fe_indices.insert(std::pair<int, int>(valence, i_fe));
+            map_valence_to_fe_indices.insert(std::pair<unsigned int, unsigned int>(valence, i_fe));
             FE_Catmull_Clark<dim, spacedim> fe(valence);
-            
-            CCMappingFEField<dim,spacedim,Vector<double>,hp::DoFHandler<2,3>> mapping(dof_handler, vec_values, i_fe, mask);
             fe_collection.push_back(FESystem<dim,spacedim>(fe,n_element));
-            mapping_collection.push_back(mapping);
+            if (valence == 1 || valence == 2 || valence == 4){
+                q_collection.push_back(qpts);
+            }else{
+                q_collection.push_back(qpts_irreg);
+            }
             
             cell->set_active_fe_index(i_fe);
             ++i_fe;
         }
+    }
+    indices_mapping_valence_to_fe = map_valence_to_fe_indices;
+}
+
+
+
+template<int dim, int spacedim>
+void
+CatmullClark<dim,spacedim>::set_MappingCollection(hp::DoFHandler<dim, spacedim> &dof_handler, Vector<double> &vec_values, const unsigned int n_element){
+    const ComponentMask mask(spacedim, true);
+    AssertDimension(dof_handler.n_dofs(), indices_mapping.size()*n_element);
+        
+    for (unsigned int fe_id = 0; fe_id < indices_mapping_valence_to_fe.size(); ++fe_id)
+    {
+        MappingFEField_hp<dim,spacedim,Vector<double>,hp::DoFHandler<2,3>> mapping(dof_handler, vec_values, fe_id, mask);
+        mapping_collection.push_back(mapping);
     }
 }
 
@@ -415,8 +491,9 @@ void CatmullClark<dim,spacedim>::new_dofs_for_cells(hp::DoFHandler<dim, spacedim
         std::vector<types::global_dof_index> non_local_dof_indices(cell->get_fe().non_local_dofs_per_cell,0);
         std::vector<unsigned int> reorder_indices(cell->get_fe().dofs_per_cell,0);
         cell-> get_dof_indices(cell_dof_indices);
-        for (unsigned int i = 0; i < 4; ++i) {
-            indices_mapping.insert({cell_dof_indices[i],cell->vertex_index(i)});
+        for (unsigned int iv = 0; iv < 4; ++iv) {
+            unsigned i_first_dof = iv*n_element;
+            indices_mapping.insert({cell->vertex_index(iv), cell_dof_indices[i_first_dof]});
         }
         
         switch (cells.size()){
@@ -496,7 +573,6 @@ void CatmullClark<dim,spacedim>::new_dofs_for_cells(hp::DoFHandler<dim, spacedim
                     cells[2] -> get_dof_indices(cell_dof_indices);
                     non_local_dof_indices[1*n_element+iel] = cell_dof_indices[rotated_iv_2[2]*n_element+iel];
                     non_local_dof_indices[0*n_element+iel] = cell_dof_indices[rotated_iv_2[3]*n_element+iel];
-                    
                     non_local_dof_indices[2*n_element+iel] = get_neighbour_dofs(cells[0],cells[3],n_element)[0*n_element+iel];
                 }
                 break;
@@ -753,10 +829,10 @@ void CatmullClark<dim,spacedim>::new_dofs_for_cells(hp::DoFHandler<dim, spacedim
                 int ex_vertex_index;
                 for (unsigned int i = 0; i<4; ++i){
                     unsigned int n = 0;
-                    for (unsigned int icell = 0 ; icell < 2; ++icell ){
+                    for (unsigned int icell = 1 ; icell < 3; ++icell ){
                         std::vector<types::global_dof_index> icell_dof_indices;
-                        icell_dof_indices.resize(cells[icell+1]->get_fe().dofs_per_cell);
-                        cells[icell+1] -> get_dof_indices(icell_dof_indices);
+                        icell_dof_indices.resize(cells[icell]->get_fe().dofs_per_cell);
+                        cells[icell] -> get_dof_indices(icell_dof_indices);
                         for(unsigned int j = 0; j<4; ++j){
                             if(cell_dof_indices[i*n_element] == icell_dof_indices[j*n_element]){
                                 n += 1;
@@ -827,7 +903,7 @@ void CatmullClark<dim,spacedim>::new_dofs_for_cells(hp::DoFHandler<dim, spacedim
                 
                 std::vector<unsigned int> dof_vec(2*n_element,0);
                 
-                for(unsigned int i = 0; i<2; ++i){
+                for(unsigned int i = 0; i < 2; ++i){
                     unsigned int idof = dof_pairs[0][i*n_element];
                     bool is_in = false;
                     for(unsigned int j = 0; j < 2; ++j){

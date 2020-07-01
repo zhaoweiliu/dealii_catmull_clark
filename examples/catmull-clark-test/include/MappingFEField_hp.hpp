@@ -23,6 +23,8 @@
 
 #include <array>
 
+#include "MappingFEField_hp.hpp"
+
 
 DEAL_II_NAMESPACE_OPEN
 
@@ -30,14 +32,20 @@ template <int dim,
           int spacedim,
           typename VectorType     = Vector<double>,
           typename DoFHandlerType = hp::DoFHandler<dim, spacedim>>
-class CCMappingFEField : public Mapping<dim, spacedim>
+class MappingFEField_hp : public Mapping<dim, spacedim>
 {
 public:
  
-  CCMappingFEField(const DoFHandlerType &euler_dof_handler,
+  MappingFEField_hp(const DoFHandlerType &euler_dof_handler,
                  const VectorType &    euler_vector,
                  const unsigned int fe_id,
                  const ComponentMask & mask = ComponentMask());
+    
+  /**
+   * Copy constructor.
+   */
+  MappingFEField_hp(
+    const MappingFEField_hp<dim, spacedim, VectorType, DoFHandlerType> &mapping);
 
   /**
    * Return a pointer to a copy of the present object. The caller of this copy
@@ -430,14 +438,15 @@ private:
    */
   std::vector<
     SmartPointer<const VectorType,
-                 CCMappingFEField<dim, spacedim, VectorType, DoFHandlerType>>>
+                 MappingFEField_hp<dim, spacedim, VectorType, DoFHandlerType>>>
+//    std::vector<const VectorType>
     euler_vector;
 
   /**
    * Pointer to the DoFHandler to which the mapping vector is associated.
    */
   SmartPointer<const DoFHandlerType,
-               CCMappingFEField<dim, spacedim, VectorType, DoFHandlerType>>
+               MappingFEField_hp<dim, spacedim, VectorType, DoFHandlerType>>
     euler_dof_handler;
     
     const typename hp::DoFHandler<dim, spacedim>::cell_iterator dof_cell;
@@ -493,7 +502,7 @@ private:
   void
   update_internal_dofs(
     const typename Triangulation<dim, spacedim>::cell_iterator &cell,
-    const typename CCMappingFEField<dim, spacedim, VectorType, DoFHandlerType>::
+    const typename MappingFEField_hp<dim, spacedim, VectorType, DoFHandlerType>::
       InternalData &data) const;
 
   /**
@@ -502,7 +511,8 @@ private:
   virtual void
   compute_shapes_virtual(
     const std::vector<Point<dim>> &unit_points,
-    typename CCMappingFEField<dim, spacedim, VectorType, DoFHandlerType>::
+    typename MappingFEField_hp
+                         <dim, spacedim, VectorType, DoFHandlerType>::
       InternalData &data) const;
 
   /*
@@ -545,9 +555,9 @@ private:
                     InternalData &         data) const;
 
 
-  // Declare other CCMappingFEField classes friends.
+  // Declare other MappingFEField classes friends.
   template <int, int, class, class>
-  friend class CCMappingFEField;
+  friend class MappingFEField;
 };
 
 /*@}*/
