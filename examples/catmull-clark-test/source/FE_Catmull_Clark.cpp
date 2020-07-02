@@ -418,9 +418,7 @@ void FE_Catmull_Clark<dim,spacedim>::fill_fe_values(
         output_data.shape_values = fe_data.shape_values;
     }
     if (flags & update_gradients){
-        for (unsigned int k = 0; k < this->dofs_per_cell; ++k){
-            
-        }
+//        output_data.shape_gradients = fe_data.shape_gradients;
     }
 }
 

@@ -243,8 +243,9 @@ MappingFEField_hp<dim, spacedim, VectorType, DoFHandlerType>::MappingFEField_hp(
   unsigned int size = 0;
   for (unsigned int i = 0; i < fe_mask.size(); ++i)
     {
-      if (fe_mask[i])
-        fe_to_real[i] = size++;
+        if (fe_mask[i]){
+            fe_to_real[i] = size++;
+        }
     }
   AssertDimension(size, spacedim);
 }

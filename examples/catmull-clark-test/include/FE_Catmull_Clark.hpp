@@ -118,15 +118,15 @@ public:
     class InternalData : public FiniteElement<dim,spacedim>::InternalDataBase
     {
     public:
-        
+
         using ShapeVector = dealii::Table<2, double>;
-        
+
         using GradientVector = dealii::Table<2, Tensor<1, dim>>;
 
         ShapeVector shape_values;
 
         GradientVector shape_derivatives;
-           
+
     };
 
 private:

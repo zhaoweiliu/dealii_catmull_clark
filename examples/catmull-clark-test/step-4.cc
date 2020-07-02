@@ -73,7 +73,7 @@ template <int spacedim>
  double RightHandSide<spacedim>::value(const Point<spacedim> &p,
                                   const unsigned int /*component*/) const
  {
-   double product = 1;
+   double product = p[0];
 //   for (unsigned int d = 0; d < spacedim; ++d)
 //     product *= (p[d] + 1);
    return product;
@@ -170,7 +170,7 @@ int main()
                      fe_values.JxW(q_point));           // dx
                 }
                 cell_rhs(i) += (fe_values.shape_value(i, q_point) * // phi_i(x_q)
-                                1 *               // f(x_q)
+                                rhs_values[q_point] *               // f(x_q)
                                 fe_values.JxW(q_point));            // dx
             }
         }
@@ -207,7 +207,7 @@ int main()
            {
                q_sol += solution[local_dof_indices[i]] * fe_values.shape_value(i, q_point);
            }
-           std::cout << "quadrature point "<< q_point << " value = "<<q_sol<<std::endl;
+           std::cout << "quadrature point "<< q_point << " x = " << fe_values.get_quadrature_points()[q_point][0]<< " value = "<<q_sol<<std::endl;
        }
     }
     
