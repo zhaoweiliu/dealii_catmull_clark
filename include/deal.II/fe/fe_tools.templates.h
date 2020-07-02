@@ -871,42 +871,46 @@ namespace FETools
                         non_primitive_index;
                   }
           }
+      unsigned int total_index_offset = total_index;
       // non-local
       for (unsigned int base = 0; base < fe.n_base_elements(); ++base)
-      {
-        for (unsigned int non_local_index = 0;
-                non_local_index < fe.base_element(base).non_local_dofs_per_cell;
-                ++non_local_index)
+      {       
+        unsigned int comp_start = 0;
+        for (unsigned int m = 0; m < fe.element_multiplicity(base);
+              ++m,
+              comp_start +=
+              fe.base_element(base).n_components() *
+              do_tensor_product)
         {
-          unsigned int comp_start = 0;
-          for (unsigned int m = 0; m < fe.element_multiplicity(base);
-                   ++m,
-                   comp_start +=
-                   fe.base_element(base).n_components() *
-                   do_tensor_product, ++total_index)
+          for (unsigned int non_local_index = 0;
+                non_local_index < fe.base_element(base).non_local_dofs_per_cell;
+                ++non_local_index, ++total_index)
           {
+            total_index = total_index_offset + non_local_index * (fe.n_base_elements() * fe.element_multiplicity(base)) + base * fe.element_multiplicity(base) + m;
             const unsigned int index_in_base =
                       (non_local_index + (fe.base_element(base).dofs_per_cell - fe.base_element(base).non_local_dofs_per_cell));
 
             system_to_base_table[total_index] = std::make_pair(std::make_pair(base, m), index_in_base);
 
             if (fe.base_element(base).is_primitive(index_in_base))
-              {
-                const unsigned int comp_in_base =
-                  fe.base_element(base)
-                     .system_to_component_index(index_in_base)
-                     .first;
-                  const unsigned int comp = comp_start + comp_in_base;
-                  const unsigned int index_in_comp =
-                  fe.base_element(base)
-                    .system_to_component_index(index_in_base)
-                    .second;
-                  system_to_component_table[total_index] =
-                    std::make_pair(comp, index_in_comp);
-              }
+            {
+              const unsigned int comp_in_base =
+                fe.base_element(base)
+                  .system_to_component_index(index_in_base)
+                  .first;
+              const unsigned int comp = comp_start + comp_in_base;
+              const unsigned int index_in_comp =
+                fe.base_element(base)
+                  .system_to_component_index(index_in_base)
+                  .second;
+                system_to_component_table[total_index] =
+                  std::make_pair(comp, index_in_comp);
+            }
             else
+            {
               system_to_component_table[total_index] =
                 non_primitive_index;
+            }
           }
         }
       }

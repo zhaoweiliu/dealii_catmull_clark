@@ -415,9 +415,7 @@ void FE_Catmull_Clark<dim,spacedim>::fill_fe_values(
     Assert(!(flags & update_values) || fe_data.shape_values.n_cols() == n_q_points, ExcDimensionMismatch(fe_data.shape_values.n_cols(), n_q_points));
     
     if (flags & update_values){
-        for (unsigned int k = 0; k < this->dofs_per_cell; ++k){
-            output_data.shape_values= fe_data.shape_values;
-        }
+        output_data.shape_values = fe_data.shape_values;
     }
     if (flags & update_gradients){
         for (unsigned int k = 0; k < this->dofs_per_cell; ++k){
