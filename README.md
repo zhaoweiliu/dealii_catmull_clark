@@ -1,61 +1,61 @@
 What is deal.II?
-================
+ ================
 
-deal.II is a C++ program library targeted at the computational solution
-of partial differential equations using adaptive finite elements. It uses
-state-of-the-art programming techniques to offer you a modern interface
-to the complex data structures and algorithms required.
+ deal.II is a C++ program library targeted at the computational solution
+ of partial differential equations using adaptive finite elements. It uses
+ state-of-the-art programming techniques to offer you a modern interface
+ to the complex data structures and algorithms required.
 
-For the impatient:
-------------------
+ For the impatient:
+ ------------------
 
-Let's say you've unpacked the .tar.gz file into a directory /path/to/dealii/sources. 
-Then configure, compile, and install the deal.II library with:
+ Let's say you've unpacked the .tar.gz file into a directory /path/to/dealii/sources. 
+ Then configure, compile, and install the deal.II library with:
 
-    $ mkdir build
-    $ cd build
-    $ cmake -DCMAKE_INSTALL_PREFIX=/path/where/dealii/should/be/installed/to /path/to/dealii/sources
-    $ make install    (alternatively $ make -j<N> install)
-    $ make test
+     $ mkdir build
+     $ cd build
+     $ cmake -DCMAKE_INSTALL_PREFIX=/path/where/dealii/should/be/installed/to /path/to/dealii/sources
+     $ make install    (alternatively $ make -j<N> install)
+     $ make test
 
-To build from the repository, execute the following commands first:
+ To build from the repository, execute the following commands first:
 
-    $ git clone https://github.com/dealii/dealii
-    $ cd dealii
+     $ git clone https://github.com/dealii/dealii
+     $ cd dealii
 
-Then continue as before.
+ Then continue as before.
 
 A detailed *ReadME* can be found at [./doc/readme.html](https://dealii.org/developer/readme.html),
 [./doc/users/cmake_user.html](https://dealii.org/developer/users/cmake_user.html),
 or at https://www.dealii.org/.
 
-Getting started:
-----------------
+ Getting started:
+ ----------------
 
-The tutorial steps are located under examples/ of the installation.
-Information about the tutorial steps can be found at
-[./doc/doxygen/tutorial/index.html](https://dealii.org/developer/doxygen/deal.II/Tutorial.html)
-or at https://www.dealii.org/.
+ The tutorial steps are located under examples/ of the installation.
+ Information about the tutorial steps can be found at
+ [./doc/doxygen/tutorial/index.html](https://dealii.org/developer/doxygen/deal.II/Tutorial.html)
+ or at https://www.dealii.org/.
 
-deal.II includes support for pretty-printing deal.II objects inside GDB.
-See [`contrib/utilities/dotgdbinit.py`](contrib/utilities/dotgdbinit.py) or
-the new documentation page (under 'information for users') for instructions
-on how to set this up.
+ deal.II includes support for pretty-printing deal.II objects inside GDB.
+ See [`contrib/utilities/dotgdbinit.py`](contrib/utilities/dotgdbinit.py) or
+ the new documentation page (under 'information for users') for instructions
+ on how to set this up.
 
-License:
---------
+ License:
+ --------
 
-Please see the file [./LICENSE.md](LICENSE.md) for details
+ Please see the file [./LICENSE.md](LICENSE.md) for details
 
-Further information:
---------------------
+ Further information:
+ --------------------
 
-For further information have a look at
-[./doc/index.html](https://dealii.org/developer/index.html) or at
-https://www.dealii.org.
+ For further information have a look at
+ [./doc/index.html](https://dealii.org/developer/index.html) or at
+ https://www.dealii.org.
 
-Continuous Integration Status:
-------------------------
+ Continuous Integration Status:
+ ------------------------
 
 | System | Status | More information |
 | --- | --- | --- |

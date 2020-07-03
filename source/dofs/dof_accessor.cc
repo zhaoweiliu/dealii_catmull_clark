@@ -177,7 +177,7 @@ DoFCellAccessor<dim, spacedim, lda>::rearrange_dof_indices(
 
 
 template <int dim, int spacedim, bool lda>
-TriaIterator<DoFCellAccessor<dim, spacedim, lda>>
+TriaIterator<DoFCellAccessor<dim,spacedim, lda>>
 DoFCellAccessor<dim, spacedim, lda>::neighbor_child_on_subface(
   const unsigned int face,
   const unsigned int subface) const
