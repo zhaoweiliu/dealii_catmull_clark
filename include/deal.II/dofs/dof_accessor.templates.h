@@ -2179,9 +2179,11 @@ namespace internal
 
         for (unsigned int d = 0; d < n_dofs; ++d, ++next_dof_index)
           if (d >= n_dofs - non_local_dofs)
+          {
             *next_dof_index =
               local_non_local_dof_indices[index];
             ++index; 
+          }
         Assert(index == accessor.get_fe().non_local_dofs_per_cell,
                ExcInternalError());
       }
