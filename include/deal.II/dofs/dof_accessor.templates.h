@@ -878,8 +878,7 @@ namespace internal
           DoFOperation::process_dof(accessor, d, dof_indices[index], fe_index);
 
         // 5) non_local dofs
-        for (unsigned int d = 0; d < non_local_dofs_per_cell; ++d, ++index)
-          DoFOperation::process_dof(accessor, d, dof_indices[index], fe_index);
+        for (unsigned int d = 0; d < non_local_dofs_per_cell; ++d, ++index){}
 
         AssertDimension(dof_indices.size(), index);
       }
