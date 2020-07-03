@@ -813,7 +813,7 @@ namespace internal
           dofs_per_vertex = accessor.get_fe(fe_index).dofs_per_vertex, //
           dofs_per_line   = accessor.get_fe(fe_index).dofs_per_line,   //
           dofs_per_quad   = accessor.get_fe(fe_index).dofs_per_quad,   //
-          dofs_per_hex    = accessor.get_fe(fe_index).dofs_per_hex    //
+          dofs_per_hex    = accessor.get_fe(fe_index).dofs_per_hex,    //
           non_local_dofs_per_cell = accessor.get_fe(fe_index).non_local_dofs_per_cell; //
 
         const unsigned int inner_dofs =
@@ -880,7 +880,7 @@ namespace internal
         // 5) non_local dofs
         for (unsigned int d = 0; d < non_local_dofs_per_cell; ++d, ++index)
           DoFOperation::process_dof(accessor, d, dof_indices[index], fe_index);
-          
+
         AssertDimension(dof_indices.size(), index);
       }
 
