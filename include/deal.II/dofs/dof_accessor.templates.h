@@ -2156,9 +2156,15 @@ namespace internal
       {
         Assert(accessor.has_children() == false, ExcInternalError());
 
-        const unsigned int d_offset =
-          accessor.dof_handler->levels[accessor.present_level]
-            ->cell_cache_offsets[accessor.present_index];
+        const unsigned int dofs_per_cell = accessor.get_fe().dofs_per_cell;
+
+        types::global_dof_index *next_dof_index =
+          const_cast<types::global_dof_index *>(
+            dealii::internal::DoFAccessorImplementation::Implementation::
+              get_cache_ptr(accessor.dof_handler,
+                            accessor.present_level,
+                            accessor.present_index,
+                            dofs_per_cell));
 
         const unsigned int non_local_dofs =
                              accessor.get_fe().non_local_dofs_per_cell,
@@ -2166,10 +2172,11 @@ namespace internal
 
         unsigned int index = 0;
 
-        for (unsigned int d = n_dofs - non_local_dofs; d < n_dofs; ++d, ++index)
-          accessor.dof_handler->levels[accessor.present_level]
-            ->cell_dof_indices_cache[d_offset + d] =
-            local_non_local_dof_indices[index];
+        for (unsigned int d = 0; d < n_dofs; ++d, ++next_dof_index)
+          if (d >= n_dofs - non_local_dofs)
+            *next_dof_index =
+              local_non_local_dof_indices[index];
+            ++index; 
         Assert(index == accessor.get_fe().non_local_dofs_per_cell,
                ExcInternalError());
       }
@@ -2188,18 +2195,22 @@ namespace internal
         Assert(dof_indices_new_order.size() == accessor.get_fe().dofs_per_cell,
                ExcInternalError());
 
+        const unsigned int dofs_per_cell = accessor.get_fe().dofs_per_cell;
+
         std::vector<types::global_dof_index> dof_indices(
           accessor.get_fe().dofs_per_cell);
         accessor.get_dof_indices(dof_indices);
 
-        const unsigned int d_offset =
-          accessor.dof_handler->levels[accessor.present_level]
-            ->cell_cache_offsets[accessor.present_index];
+        types::global_dof_index *next_dof_index =
+          const_cast<types::global_dof_index *>(
+            dealii::internal::DoFAccessorImplementation::Implementation::
+              get_cache_ptr(accessor.dof_handler,
+                            accessor.present_level,
+                            accessor.present_index,
+                            dofs_per_cell));
 
-        for (unsigned int d = 0; d < dof_indices_new_order.size(); ++d)
-          accessor.dof_handler->levels[accessor.present_level]
-            ->cell_dof_indices_cache[d_offset + d] =
-            dof_indices[dof_indices_new_order[d]];
+        for (unsigned int d = 0; d < dof_indices_new_order.size(); ++d, ++next_dof_index)
+          *next_dof_index = dof_indices[dof_indices_new_order[d]];
       }
 
 
