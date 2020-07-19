@@ -31,6 +31,276 @@ FE_Catmull_Clark<dim,spacedim>::FE_Catmull_Clark(const unsigned int val, const u
 
 
 template <int dim, int spacedim>
+FE_Catmull_Clark<dim,spacedim>::FE_Catmull_Clark(const unsigned int val, const std::array<unsigned int, 4> verts_id, const unsigned int n_components, const bool dominate)
+: FiniteElement<dim,spacedim> (
+    FiniteElementData<dim>({1,0,0,(val == 1? 5:2*val+4)},
+                            n_components,
+                            3,
+                            FiniteElementData<dim>::H2),
+    std::vector<bool>((val == 1? 9:2*val+8),true),
+    std::vector<ComponentMask>((val == 1? 9:2*val+8),std::vector<bool>(1,true))),
+    valence(val),
+    dominate(dominate)
+{
+    shapes_id_map.resize((valence == 1? 9:2*val+8));
+    if (val == 1){
+        // object_index is the id of two edges on the boundary;
+//        auto verts_id = verts_id_on_boundary(object_index);
+//        shapes_id_map[verts_id[0]] = 0;
+//        shapes_id_map[verts_id[1]] = 1;
+//        shapes_id_map[verts_id[2]] = 4;
+//        shapes_id_map[verts_id[3]] = 3;
+//        shapes_id_map[4] = 6;
+//        shapes_id_map[5] = 7;
+//        shapes_id_map[6] = 8;
+//        shapes_id_map[7] = 5;
+//        shapes_id_map[8] = 2;
+        /*
+               6-----7-----8
+               |     |     |
+               |     |     |
+               |     |     |
+               3-----4-----5
+               |     |     |
+               |     |     |
+               |     |     |
+               0-----1-----2     */
+        
+        shapes_id_map[verts_id[0]] = 0;
+        shapes_id_map[verts_id[1]] = 3;
+        shapes_id_map[verts_id[2]] = 4;
+        shapes_id_map[verts_id[3]] = 1;
+        shapes_id_map[4] = 2;
+        shapes_id_map[5] = 5;
+        shapes_id_map[6] = 8;
+        shapes_id_map[7] = 7;
+        shapes_id_map[8] = 6;
+        
+        /* -> u j_shape
+          |    0-----1-----2
+       v \/    |     |     |
+               |     |     |
+               |     |     |
+               3-----4-----5
+               |     |     |
+               |     |     |
+               |     |     |
+               6-----7-----8     */
+        
+        /*
+        indices mapping for non-local dofs
+        0(4)-----1(5)----2(6)
+        |        |        |
+        |        |        |
+        |        |        |
+        ?--------?-------3(7)
+        |        |        |
+        |        |        |
+        |        |        |
+        ?--------?-------4(8)     */
+       
+        
+    }
+    else if (val == 2){
+//        shapes_id_map[verts_id[0]] = 1;
+//        shapes_id_map[verts_id[1]] = 2;
+//        shapes_id_map[verts_id[2]] = 6;
+//        shapes_id_map[verts_id[3]] = 5;
+//        shapes_id_map[4] = 9;
+//        shapes_id_map[5] = 10;
+//        shapes_id_map[6] = 11;
+//        shapes_id_map[7] = 7;
+//        shapes_id_map[8] = 3;
+//        shapes_id_map[9] = 0;
+//        shapes_id_map[10] = 4;
+//        shapes_id_map[11] = 8;
+        // object_index is the edge_id on boundary;
+        /*
+         8-----9----10----11
+         |     |     |     |
+         |     |     |     |
+         |     |     |     |
+         4-----5-----6-----7
+         |     |     |     |
+         |     |     |     |
+         |     |     |     |
+         0-----1-----2-----3     */
+        
+        shapes_id_map[verts_id[0]] = 2;
+        shapes_id_map[verts_id[1]] = 1;
+        shapes_id_map[verts_id[2]] = 5;
+        shapes_id_map[verts_id[3]] = 6;
+        shapes_id_map[4] = 10;
+        shapes_id_map[5] = 9;
+        shapes_id_map[6] = 8;
+        shapes_id_map[7] = 4;
+        shapes_id_map[8] = 0;
+        shapes_id_map[9] = 3;
+        shapes_id_map[10] = 7;
+        shapes_id_map[11] = 11;
+        
+        /* -> u
+         0-----1-----2-----3 v|
+         |     |     |     |  \/
+         |     |     |     |
+         |     |     |     |
+         4-----5-----6-----7
+         |     |     |     |
+         |     |     |     |
+         |     |     |     |
+         8-----9-----10----11     */
+        
+        /*
+        7(11)----0(4)-----1(5)------2(6)
+        |        |         |        |
+        |        |         |        |
+        |        |         |        |
+        6(10)----?---------?--------3(7)
+        |        |         |        |
+        |        |         |        |
+        |        |         |        |
+        5(9)-----?---------?--------4(8)     */
+    }
+    else if (val == 4)
+    {
+            // object_index dosen't matter;
+//        shapes_id_map[0] = 9;
+//        shapes_id_map[1] = 10;
+//        shapes_id_map[2] = 5;
+//        shapes_id_map[3] = 6;
+//        shapes_id_map[4] = 13;
+//        shapes_id_map[5] = 14;
+//        shapes_id_map[6] = 15;
+//        shapes_id_map[7] = 11;
+//        shapes_id_map[8] = 7;
+//        shapes_id_map[9] = 3;
+//        shapes_id_map[10] = 2;
+//        shapes_id_map[11] = 1;
+//        shapes_id_map[12] = 0;
+//        shapes_id_map[13] = 4;
+//        shapes_id_map[14] = 8;
+//        shapes_id_map[15] = 12;
+
+        /*
+         12----13----14----15
+         |     |     |     |
+         |     |     |     |
+         |     |     |     |
+         8-----9-----10----11
+         |     |     |     |
+         |     |     |     |
+         |     |     |     |
+         4-----5-----6-----7
+         |     |     |     |
+         |     |     |     |
+         |     |     |     |
+         0-----1-----2-----3
+         */
+        
+        shapes_id_map[0] = 5;
+        shapes_id_map[1] = 6;
+        shapes_id_map[2] = 9;
+        shapes_id_map[3] = 10;
+        shapes_id_map[4] = 1;
+        shapes_id_map[5] = 2;
+        shapes_id_map[6] = 3;
+        shapes_id_map[7] = 7;
+        shapes_id_map[8] = 11;
+        shapes_id_map[9] = 15;
+        shapes_id_map[10] = 14;
+        shapes_id_map[11] = 13;
+        shapes_id_map[12] = 12;
+        shapes_id_map[13] = 8;
+        shapes_id_map[14] = 4;
+        shapes_id_map[15] = 0;
+        
+        /*
+         0-----1-----2-----3
+         |     |     |     |
+         |     |     |     |
+         |     |     |     |
+         4-----5-----6-----7
+         |     |     |     |
+         |     |     |     |
+         |     |     |     |
+         8-----9-----10----11
+         |     |     |     |
+         |     |     |     |
+         |     |     |     |
+         12---13-----14----15
+         */
+        
+        /*
+        indices mapping for non-local dofs
+         11(15)---0(4)-----1(5)-----2(6)
+         |        |        |        |
+         |        |        |        |
+         |        |        |        |
+         10(14)--(0)------(1)-------3(7)
+         |        |        |        |
+         |        |        |        |
+         |        |        |        |
+         9(13)---(2)------(3)-------4(8)
+         |        |        |        |
+         |        |        |        |
+         |        |        |        |
+         8(12)----7(11)----6(10)----5(9)
+         */
+        
+    }else
+    {
+        // object_index is the index of vertex;
+        shapes_id_map[verts_id[0]] = 0;
+        shapes_id_map[verts_id[1]] = 5;
+        shapes_id_map[verts_id[2]] = 4;
+        shapes_id_map[verts_id[3]] = 3;
+        shapes_id_map[4] = 1;
+        shapes_id_map[5] = 2;
+        for (unsigned int i = 6; i < 2*valence+8; ++i) {
+            shapes_id_map[i] = i;
+        }
+        /*                   2v
+                           /  |
+                          /   |
+                         /    |
+         2v+7----2------1     *------8
+         |       |      |    /      /
+         |       |      |  ..     /
+         |       |      |/      /
+         2v+6----3------0------7
+         |       |      |      |
+         |       |      |      |
+         |       |      |      |
+         2v+5----4------5------6
+         |       |      |      |
+         |       |      |      |
+         |       |      |      |
+         2v+1---2v+2----2v+3---2v+4         */
+        
+        /*                   2v-4
+                           /  |
+                          /   |
+                         /    |
+         2v+3-----1-----0     *------4
+         |        |     |    /     /
+         |        |     |  ..    /
+         |        |     |/     /
+         2v+2-----?-----?-----3
+         |        |     |     |
+         |        |     |     |
+         |        |     |     |
+         2v+1-----?-----?-----2
+         |        |     |     |
+         |        |     |     |
+         |        |     |     |
+         2v-3---2v-2---2v-1---2v         */
+
+    }
+}
+
+
+
+template <int dim, int spacedim>
 std::unique_ptr<FiniteElement<dim, spacedim>>
 FE_Catmull_Clark<dim, spacedim>::clone() const
 {
@@ -72,15 +342,16 @@ FE_Catmull_Clark<dim, spacedim>::requires_update_flags(const UpdateFlags flags) 
 template<int dim, int spacedim>
 double FE_Catmull_Clark<dim, spacedim>::shape_value (const unsigned int i, const Point< dim > &p) const
 {
+    unsigned int j = shapes_id_map[i];
     if (valence == 4){
         // i in [0,15];
-        return poly_reg.value(i,p);
+        return poly_reg.value(j,p);
     }else if(valence == 2){
         // i in [0,11];
-        return poly_one_end.value(i,p);
+        return poly_one_end.value(j,p);
     }else if (valence == 1){
         // i in [0,8];
-        return poly_two_ends.value(i,p);
+        return poly_two_ends.value(j,p);
     }else{
         // i in [0, 2*valence + 7];
 //        throw std::runtime_error("please use FE_Catmull_Clark<dim, spacedim>::shape_values instead.");
@@ -94,19 +365,42 @@ double FE_Catmull_Clark<dim, spacedim>::shape_value (const unsigned int i, const
 template<int dim, int spacedim>
 Tensor<1,dim> FE_Catmull_Clark<dim, spacedim>::shape_grad (const unsigned int i, const Point< dim > &p) const
 {
+    unsigned int j = shapes_id_map[i];
     if (valence == 4){
         // i in [0,15];
-        return poly_reg.grads(i,p);
+        return poly_reg.grads(j,p);
     }else if(valence == 2){
         // i in [0,11];
-        return poly_one_end.grads(i,p);
+        return poly_one_end.grads(j,p);
     }else if (valence == 1){
         // i in [0,8];
-        return poly_two_ends.grads(i,p);
+        return poly_two_ends.grads(j,p);
     }else{
         // i in [0, 2*valence + 7];
         std::cout << "\n warning: inefficiently compute shape functions in irregular patch.\n";
         return this->shape_grads(p)[i];
+    }
+}
+
+
+
+template<int dim, int spacedim>
+Tensor<2,dim> FE_Catmull_Clark<dim, spacedim>::shape_grad_grad (const unsigned int i, const Point< dim > &p) const
+{
+    unsigned int j = shapes_id_map[i];
+    if (valence == 4){
+        // i in [0,15];
+        return poly_reg.grad_grads(j,p);
+    }else if(valence == 2){
+        // i in [0,11];
+        return poly_one_end.grad_grads(j,p);
+    }else if (valence == 1){
+        // i in [0,8];
+        return poly_two_ends.grad_grads(j,p);
+    }else{
+        // i in [0, 2*valence + 7];
+        std::cout << "\n warning: inefficiently compute shape functions in irregular patch.\n";
+        return this->shape_grad_grads(p)[i];
     }
 }
 
@@ -118,7 +412,8 @@ std::vector<double> FE_Catmull_Clark<dim, spacedim>::shape_values (const Point< 
     if (valence == 1) {
         std::vector<double> shape_vectors(9);
         for (unsigned int i = 0; i < 9; ++i) {
-            shape_vectors[i] = poly_two_ends.value(i,p);
+            unsigned int j = shapes_id_map[i];
+            shape_vectors[i] = poly_two_ends.value(j,p);
         }
         return shape_vectors;
     }else{
@@ -126,13 +421,15 @@ std::vector<double> FE_Catmull_Clark<dim, spacedim>::shape_values (const Point< 
         if (valence == 4){
             for (unsigned int i = 0; i < 16; ++i)
             {
-                shape_vectors[i] = poly_reg.value(i,p);
+                unsigned int j = shapes_id_map[i];
+                shape_vectors[i] = poly_reg.value(j,p);
             }
         }
         else if(valence == 2){
             for (unsigned int i = 0; i < 12; ++i)
             {
-                shape_vectors[i] = poly_one_end.value(i,p);
+                unsigned int j = shapes_id_map[i];
+                shape_vectors[i] = poly_one_end.value(j,p);
             }
         }
         else {
@@ -147,7 +444,8 @@ std::vector<double> FE_Catmull_Clark<dim, spacedim>::shape_values (const Point< 
             }
             Subd_matrix.Tvmult(shape_vectors_result,shape_vectors_reg);
             for (unsigned int i = 0; i < 2*valence+8; ++i) {
-                shape_vectors[i] = shape_vectors_result[i];
+                unsigned int j = shapes_id_map[i];
+                shape_vectors[i] = shape_vectors_result[j];
             }
         }
         return shape_vectors;
@@ -159,24 +457,28 @@ std::vector<double> FE_Catmull_Clark<dim, spacedim>::shape_values (const Point< 
 template<int dim, int spacedim>
 std::vector<Tensor<1, dim>> FE_Catmull_Clark<dim, spacedim>::shape_grads (const Point< dim > &p) const
 {
+    std::vector<Tensor<1, dim>> shape_grad_vectors;
     if (valence == 1) {
-        std::vector<Tensor<1, dim>> shape_grad_vectors(9);
+        shape_grad_vectors.resize(9);
         for (unsigned int i = 0; i < 9; ++i) {
-            shape_grad_vectors[i] = poly_two_ends.grads(i,p);
+            unsigned int j = shapes_id_map[i];
+            shape_grad_vectors[i] = poly_two_ends.grads(j,p);
         }
         return shape_grad_vectors;
     }else{
-        std::vector<Tensor<1, dim>> shape_grad_vectors(2*valence + 8);
+        shape_grad_vectors.resize(2*valence + 8);
         if (valence == 4){
             for (unsigned int i = 0; i < 16; ++i)
             {
-                shape_grad_vectors[i] = poly_reg.grads(i,p);
+                unsigned int j = shapes_id_map[i];
+                shape_grad_vectors[i] = poly_reg.grads(j,p);
             }
         }
         else if(valence == 2){
             for (unsigned int i = 0; i < 12; ++i)
             {
-                shape_grad_vectors[i] = poly_one_end.grads(i,p);
+                unsigned int j = shapes_id_map[i];
+                shape_grad_vectors[i] = poly_one_end.grads(j,p);
             }
         }
         else {
@@ -197,8 +499,9 @@ std::vector<Tensor<1, dim>> FE_Catmull_Clark<dim, spacedim>::shape_grads (const 
             Subd_matrix.Tvmult(grad1,grad1_reg);
             Subd_matrix.Tvmult(grad2,grad2_reg);
             for (unsigned int i = 0; i < 2*valence+8; ++i) {
-                shape_grad_vectors[i][0] = grad1[i] * jac;
-                shape_grad_vectors[i][1] = grad2[i] * jac;
+                unsigned int j = shapes_id_map[i];
+                shape_grad_vectors[i][0] = grad1[j] * jac;
+                shape_grad_vectors[i][1] = grad2[j] * jac;
             }
         }
         return shape_grad_vectors;
@@ -208,25 +511,93 @@ std::vector<Tensor<1, dim>> FE_Catmull_Clark<dim, spacedim>::shape_grads (const 
 
 
 template<int dim, int spacedim>
-void FE_Catmull_Clark<dim, spacedim>::compute(const UpdateFlags update_flags, const Point< dim > &p, std::vector<double> &values,  std::vector<Tensor<1,dim>> &grads /*, add more if required*/) const{
+std::vector<Tensor<2, dim>> FE_Catmull_Clark<dim, spacedim>::shape_grad_grads (const Point< dim > &p) const
+{
+    if (valence == 1) {
+        std::vector<Tensor<2, dim>> shape_grad_grad_vectors(9);
+        for (unsigned int i = 0; i < 9; ++i) {
+            unsigned int j = shapes_id_map[i];
+            shape_grad_grad_vectors[i] = poly_two_ends.grad_grads(j,p);
+        }
+        return shape_grad_grad_vectors;
+    }else{
+        std::vector<Tensor<2, dim>> shape_grad_grad_vectors(2*valence + 8);
+        if (valence == 4){
+            for (unsigned int i = 0; i < 16; ++i)
+            {
+                unsigned int j = shapes_id_map[i];
+                shape_grad_grad_vectors[i] = poly_reg.grad_grads(j,p);
+            }
+        }
+        else if(valence == 2){
+            for (unsigned int i = 0; i < 12; ++i)
+            {
+                unsigned int j = shapes_id_map[i];
+                shape_grad_grad_vectors[i] = poly_one_end.grad_grads(j,p);
+            }
+        }
+        else {
+            Vector<double> grad11_reg(16);
+            Vector<double> grad12_reg(16);
+            Vector<double> grad21_reg(16);
+            Vector<double> grad22_reg(16);
+            
+            Vector<double> grad11(2*valence+8);
+            Vector<double> grad12(2*valence+8);
+            Vector<double> grad21(2*valence+8);
+            Vector<double> grad22(2*valence+8);
+
+            Point<dim> p_mapped;
+            double jac;
+            FullMatrix<double> Subd_matrix = compute_subd_matrix(p, p_mapped, jac);
+            for (unsigned int i = 0; i < 16; ++i)
+            {
+                grad11_reg[i] = poly_reg.grad_grads(i,p_mapped)[0][0];
+                grad12_reg[i] = poly_reg.grad_grads(i,p_mapped)[0][1];
+                grad21_reg[i] = poly_reg.grad_grads(i,p_mapped)[1][0];
+                grad22_reg[i] = poly_reg.grad_grads(i,p_mapped)[1][1];
+            }
+            Subd_matrix.Tvmult(grad11,grad11_reg);
+            Subd_matrix.Tvmult(grad12,grad12_reg);
+            Subd_matrix.Tvmult(grad21,grad21_reg);
+            Subd_matrix.Tvmult(grad22,grad22_reg);
+            for (unsigned int i = 0; i < 2*valence+8; ++i) {
+                unsigned int j = shapes_id_map[i];
+                shape_grad_grad_vectors[i][0][0] = grad11[j] * jac * jac;
+                shape_grad_grad_vectors[i][0][1] = grad12[j] * jac * jac;
+                shape_grad_grad_vectors[i][1][0] = grad21[j] * jac * jac;
+                shape_grad_grad_vectors[i][1][1] = grad22[j] * jac * jac;
+            }
+        }
+        return shape_grad_grad_vectors;
+    }
+}
+
+
+
+template<int dim, int spacedim>
+void FE_Catmull_Clark<dim, spacedim>::compute(const UpdateFlags update_flags, const Point< dim > &p, std::vector<double> &values,  std::vector<Tensor<1,dim>> &grads,std::vector<Tensor<2,dim>> &grad_grads /*, add more if required*/) const{
     if (update_flags & update_values){
         if (valence == 1) {
             values.resize(9);
             for (unsigned int i = 0; i < 9; ++i) {
-                values[i] = poly_two_ends.value(i,p);
+                unsigned int j = shapes_id_map[i];
+                values[i] = poly_two_ends.value(j,p);
             }
         }else{
             values.resize(2*valence + 8);
             if (valence == 4){
                 for (unsigned int i = 0; i < 16; ++i)
                 {
-                    values[i] = poly_reg.value(i,p);
+                    unsigned int j = shapes_id_map[i];
+                    values[i] = poly_reg.value(j,p);
                 }
             }
             else if(valence == 2){
                 for (unsigned int i = 0; i < 12; ++i)
                 {
-                    values[i] = poly_one_end.value(i,p);
+                    unsigned int j = shapes_id_map[i];
+                    values[i] = poly_one_end.value(j,p);
                 }
             }
             else {
@@ -242,7 +613,8 @@ void FE_Catmull_Clark<dim, spacedim>::compute(const UpdateFlags update_flags, co
                 }
                 Subd_matrix.Tvmult(shape_vectors_result,shape_vectors_reg);
                 for (unsigned int i = 0; i < 2*valence+8; ++i) {
-                    values[i] = shape_vectors_result[i];
+                    unsigned int j = shapes_id_map[i];
+                    values[i] = shape_vectors_result[j];
                 }
             }
         }
@@ -251,20 +623,23 @@ void FE_Catmull_Clark<dim, spacedim>::compute(const UpdateFlags update_flags, co
         if (valence == 1) {
             grads.resize(9);
             for (unsigned int i = 0; i < 9; ++i) {
-                grads[i] = poly_two_ends.grads(i,p);
+                unsigned int j = shapes_id_map[i];
+                grads[i] = poly_two_ends.grads(j,p);
             }
         }else{
             grads.resize(2*valence + 8);
             if (valence == 4){
                 for (unsigned int i = 0; i < 16; ++i)
                 {
-                    grads[i] = poly_reg.grads(i,p);
+                    unsigned int j = shapes_id_map[i];
+                    grads[i] = poly_reg.grads(j,p);
                 }
             }
             else if(valence == 2){
                 for (unsigned int i = 0; i < 12; ++i)
                 {
-                    grads[i] = poly_one_end.grads(i,p);
+                    unsigned int j = shapes_id_map[i];
+                    grads[i] = poly_one_end.grads(j,p);
                 }
             }
             else {
@@ -284,8 +659,63 @@ void FE_Catmull_Clark<dim, spacedim>::compute(const UpdateFlags update_flags, co
                 Subd_matrix.Tvmult(grad1,grad1_reg);
                 Subd_matrix.Tvmult(grad2,grad2_reg);
                 for (unsigned int i = 0; i < 2*valence+8; ++i) {
-                    grads[i][0] = grad1[i] * jac;
-                    grads[i][1] = grad2[i] * jac;
+                    unsigned int j = shapes_id_map[i];
+                    grads[i][0] = grad1[j] * jac;
+                    grads[i][1] = grad2[j] * jac;
+                }
+            }
+        }
+    }
+    if (update_flags & update_hessians){
+        if (valence == 1) {
+            grad_grads.resize(9);
+            for (unsigned int i = 0; i < 9; ++i) {
+                unsigned int j = shapes_id_map[i];
+                grad_grads[i] = poly_two_ends.grad_grads(j,p);
+            }
+        }else{
+            grad_grads.resize(2*valence + 8);
+            if (valence == 4){
+                for (unsigned int i = 0; i < 16; ++i)
+                {
+                    unsigned int j = shapes_id_map[i];
+                    grad_grads[i] = poly_reg.grad_grads(j,p);
+                }
+            }
+            else if(valence == 2){
+                for (unsigned int i = 0; i < 12; ++i)
+                {
+                    unsigned int j = shapes_id_map[i];
+                    grad_grads[i] = poly_one_end.grad_grads(j,p);
+                }
+            }
+            else {
+                Vector<double> grad_grads11_reg(16);
+                Vector<double> grad_grads22_reg(16);
+                Vector<double> grad_grads12_reg(16);
+
+                Vector<double> grad_grads11(2*valence+8);
+                Vector<double> grad_grads22(2*valence+8);
+                Vector<double> grad_grads12(2*valence+8);
+                Point<dim> p_mapped;
+                double jac;
+                FullMatrix<double> Subd_matrix = compute_subd_matrix(p, p_mapped, jac);
+                for (unsigned int i = 0; i < 16; ++i)
+                {
+                    grad_grads11_reg[i] = poly_reg.grad_grads(i,p_mapped)[0][0];
+                    grad_grads22_reg[i] = poly_reg.grad_grads(i,p_mapped)[1][1];
+                    grad_grads12_reg[i] =poly_reg.grad_grads(i,p_mapped)[0][1];
+                }
+                Subd_matrix.Tvmult(grad_grads11,grad_grads11_reg);
+                Subd_matrix.Tvmult(grad_grads22,grad_grads22_reg);
+                Subd_matrix.Tvmult(grad_grads12,grad_grads12_reg);
+
+                for (unsigned int i = 0; i < 2*valence+8; ++i) {
+                    unsigned int j = shapes_id_map[i];
+                    grad_grads[i][0][0] = grad_grads11[j] * jac * jac;
+                    grad_grads[i][1][1] = grad_grads22[j] * jac * jac;
+                    grad_grads[i][0][1] = grad_grads12[j] * jac * jac;
+                    grad_grads[i][1][0] = grad_grads12[j] * jac * jac;
                 }
             }
         }
@@ -373,11 +803,15 @@ get_data(
        update_jacobians | update_jacobian_grads | update_inverse_jacobians))
         data.shape_derivatives.reinit(this->dofs_per_cell, n_q_points);;
     
+    if (data.update_each & update_hessians)
+    data.shape_hessian.reinit(this->dofs_per_cell, n_q_points);
+
     for (unsigned int iq = 0; iq < n_q_points; ++iq) {
         Point<dim> p = qpts[iq];
         std::vector<double> values;
         std::vector<Tensor<1,dim>> derivatives;
-        this->compute(update_flags, p, values, derivatives);
+        std::vector<Tensor<2,dim>> second_derivatives;
+        this->compute(update_flags, p, values, derivatives,second_derivatives);
         if (update_flags & update_values){
             for (unsigned int k = 0; k < this->dofs_per_cell; ++k){
                 data.shape_values[k][iq] = values[k];
@@ -386,6 +820,11 @@ get_data(
         if (update_flags & update_gradients){
             for (unsigned int k = 0; k < this->dofs_per_cell; ++k){
                 data.shape_derivatives[k][iq] = derivatives[k];
+            }
+        }
+        if (update_flags & update_hessians){
+            for (unsigned int k = 0; k < this->dofs_per_cell; ++k){
+                data.shape_hessian[k][iq] = second_derivatives[k];
             }
         }
     }
@@ -414,11 +853,43 @@ void FE_Catmull_Clark<dim,spacedim>::fill_fe_values(
     Assert(!(flags & update_values) || fe_data.shape_values.n_rows() == this->dofs_per_cell, ExcDimensionMismatch(fe_data.shape_values.n_rows(), this->dofs_per_cell));
     Assert(!(flags & update_values) || fe_data.shape_values.n_cols() == n_q_points, ExcDimensionMismatch(fe_data.shape_values.n_cols(), n_q_points));
     
+    Assert(!(flags & update_gradients) || fe_data.shape_derivatives.n_rows() == this->dofs_per_cell, ExcDimensionMismatch(fe_data.shape_derivatives.n_rows(), this->dofs_per_cell));
+    Assert(!(flags & update_gradients) || fe_data.shape_derivatives.n_cols() == n_q_points, ExcDimensionMismatch(fe_data.shape_derivatives.n_cols(), n_q_points));
+    
     if (flags & update_values){
         output_data.shape_values = fe_data.shape_values;
     }
     if (flags & update_gradients){
-//        output_data.shape_gradients = fe_data.shape_gradients;
+        for (unsigned int q_point = 0; q_point< n_q_points ; ++q_point) {
+            for (unsigned int idof = 0; idof < this->dofs_per_cell; ++idof) {
+                for (unsigned int i = 0; i< spacedim ; ++i) {
+                    output_data.shape_gradients[idof][q_point][i] = 0;
+                    for (unsigned int j = 0; j< dim ; ++j) {
+                        output_data.shape_gradients[idof][q_point][i] += fe_data.shape_derivatives[idof][q_point][j] * mapping_data.inverse_jacobians[q_point][j][i];
+                    }
+                }
+            }
+        }
+    }
+    if (flags & update_hessians){
+        for (unsigned int q_point = 0; q_point< n_q_points ; ++q_point) {
+            for (unsigned int idof = 0; idof < this->dofs_per_cell; ++idof) {
+                for (unsigned int i = 0; i< spacedim ; ++i) {
+                    for (unsigned int j = 0; j< spacedim ; ++j) {
+                        output_data.shape_hessians[idof][q_point][i][j] = 0;
+                        output_data.shape_hessians[idof][q_point][i][j] = 0;
+                        for (unsigned int k = 0; k< dim ; ++k) {
+                            for (unsigned int l = 0; l < dim; ++l) {
+                                output_data.shape_hessians[idof][q_point][i][j] += fe_data.shape_hessian[idof][q_point][k][l] * mapping_data.inverse_jacobians[q_point][l][j] * mapping_data.inverse_jacobians[q_point][k][i];
+                            }
+                            for (unsigned int n = 0; n < spacedim; ++n) {
+                                output_data.shape_hessians[idof][q_point][i][j] -= fe_data.shape_derivatives[idof][q_point][k] * mapping_data.jacobian_pushed_forward_grads[q_point][n][i][j] * mapping_data.inverse_jacobians[q_point][k][n];
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -476,14 +947,15 @@ template <int dim, int spacedim>
  FiniteElementDomination::Domination
 FE_Catmull_Clark<dim,spacedim>::compare_for_domination(const FiniteElement<dim, spacedim> &fe, const unsigned int codim) const
 {
-    if(codim == 0){
-        if (this->n_dofs_per_cell()> fe.n_dofs_per_cell()){
-            return FiniteElementDomination::this_element_dominates;
-        }
-        else{
-            return FiniteElementDomination::no_requirements;
-        }
-    }
+//    if(codim == 0){
+//        if (this->n_dofs_per_cell()> fe.n_dofs_per_cell()){
+//            return FiniteElementDomination::this_element_dominates;
+//        }
+//        else{
+//            return FiniteElementDomination::no_requirements;
+//        }
+//    }
+    return FiniteElementDomination::no_requirements;
 }
 
 template <int dim, int spacedim>

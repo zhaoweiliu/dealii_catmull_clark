@@ -52,6 +52,9 @@ public:
         double value( const unsigned int i, const Point<dim> &unit_point) const;
         
         Tensor<1,dim> grads( const unsigned int i, const Point<dim> &unit_point) const;
+        
+        Tensor<2,dim> grad_grads( const unsigned int i, const Point<dim> &unit_point) const;
+        
     private:
         std::vector<PolynomialsCubicBSpline> polys_1d;
         
@@ -79,7 +82,10 @@ public:
         double value( const unsigned int i, const Point<dim> &unit_point) const;
 
         Tensor<1,dim> grads( const unsigned int i, const Point<dim> &unit_point) const;
+        
+        Tensor<2,dim> grad_grads( const unsigned int i, const Point<dim> &unit_point) const;
 
+        
         private:
         std::vector<PolynomialsCubicBSpline> pols_1;
 
@@ -106,6 +112,8 @@ public:
         double value( const unsigned int i, const Point<dim> &unit_point) const;
         
         Tensor<1,dim> grads( const unsigned int i, const Point<dim> &unit_point) const;
+        
+        Tensor<2,dim> grad_grads( const unsigned int i, const Point<dim> &unit_point) const;
         
     private:
         std::vector<PolynomialsCubicBSplineEnd> polys_1d_end;

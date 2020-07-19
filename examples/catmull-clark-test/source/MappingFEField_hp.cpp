@@ -383,6 +383,7 @@ MappingFEField_hp<dim, spacedim, VectorType, DoFHandlerType>::
           data.second_derivative(point, i) =
             fe->shape_grad_grad(i, unit_points[point]);
 
+        
       if (data.shape_third_derivatives.size() != 0)
         for (unsigned int i = 0; i < data.n_shape_functions; ++i)
           data.third_derivative(point, i) =

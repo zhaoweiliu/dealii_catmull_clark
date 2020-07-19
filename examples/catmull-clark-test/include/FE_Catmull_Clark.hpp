@@ -35,6 +35,8 @@ public:
     
     FE_Catmull_Clark(const unsigned int valence, const unsigned int n_components = 1, const bool dominate = false);
     
+    FE_Catmull_Clark(const unsigned int valence, const std::array<unsigned int, 4> verts_id, const unsigned int n_components = 1, const bool dominate = false);
+    
     virtual std::unique_ptr<FiniteElement<dim, spacedim>>
     clone() const override;
     
@@ -50,14 +52,19 @@ public:
     requires_update_flags(const UpdateFlags update_flags) const override;
     
     virtual double shape_value (const unsigned int i, const Point< dim > &p) const override;
+    
     virtual Tensor<1,dim> shape_grad (const unsigned int i, const Point< dim > &p) const override;
+    
+    virtual Tensor<2,dim> shape_grad_grad (const unsigned int i, const Point< dim > &p) const override;
     
     std::vector<double> shape_values (const Point< dim > &p) const;
     
     std::vector<Tensor<1,dim>> shape_grads (const Point< dim > &p) const;
     
+    std::vector<Tensor<2,dim>> shape_grad_grads (const Point< dim > &p) const;
+    
     void compute(const UpdateFlags update_flags,
-                 const Point< dim > &p, std::vector<double> &values,  std::vector<Tensor<1,dim>> &grads /*, add more if required*/) const;
+                 const Point< dim > &p, std::vector<double> &values,  std::vector<Tensor<1,dim>> &grads, std::vector<Tensor<2,dim>> &grad_grads /*, add more if required*/) const;
 
     virtual void
     fill_fe_values(
@@ -122,10 +129,16 @@ public:
         using ShapeVector = dealii::Table<2, double>;
 
         using GradientVector = dealii::Table<2, Tensor<1, dim>>;
+        
+        using HessianVector = dealii::Table<2, Tensor<2, dim>>;
 
         ShapeVector shape_values;
 
         GradientVector shape_derivatives;
+        
+        HessianVector shape_hessian;
+        
+        // second derivative
 
     };
 
@@ -135,12 +148,15 @@ private:
 
     const bool dominate;
     
+    // maps ith dof to shape id;
+    std::vector<unsigned int> shapes_id_map;
+    
     const typename polynomials_Catmull_Clark<dim>::regular poly_reg;
     
     const typename polynomials_Catmull_Clark<dim>::one_end_truncated poly_one_end;
 
     const typename polynomials_Catmull_Clark<dim>::two_ends_truncated poly_two_ends;
-    
+        
     FullMatrix<double> compute_subd_matrix(const Point<dim> p, Point<dim> &p_mapped, double &Jacobian) const;
     
     constexpr static double mS_12[7][7] = {
@@ -317,8 +333,6 @@ private:
         P.set(14, 2*valence+14, 1.0); P.set(15, 2*valence+13, 1.0);
         return P;
     } ;
-
-
 };
 
 DEAL_II_NAMESPACE_CLOSE

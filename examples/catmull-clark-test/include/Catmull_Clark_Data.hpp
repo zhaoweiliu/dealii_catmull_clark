@@ -35,6 +35,7 @@ catmull_clark_create_fe_quadrature_and_mapping_collections_and_distribute_dofs(h
     Vector<double> &vec_values,
     hp::MappingCollection<2,3>& mapping_collection,
     hp::QCollection<2>& q_collection,
+    hp::QCollection<2>& boundary_q_collection,
     const unsigned int n_element);
 
 template<int dim, int spacedim>
@@ -58,16 +59,18 @@ public:
         return q_collection;
     }
     
+    hp::QCollection<dim> get_boundary_QCollection(){
+           return q_boundary_collection;
+       }
+    
     std::map<unsigned int, unsigned int> dof_to_vert_indices_mapping(){
         return indices_mapping;
     }
     
     void new_dofs_for_cells(hp::DoFHandler<dim, spacedim> &dof_handler, unsigned int n_element);
-    
-    Quadrature<dim> get_adaptive_quadrature(int L, Quadrature<2> qpts);
 
 private:
-    std::map<unsigned int, unsigned int> indices_mapping_valence_to_fe;
+    std::map<unsigned int, std::vector<std::pair<unsigned int, unsigned int>>> indices_mapping_valence_to_fe;
     
     std::vector<std::set<typename hp::DoFHandler<dim,spacedim>::active_cell_iterator>> cell_patch_vector;
     
@@ -76,6 +79,8 @@ private:
     std::map<unsigned int, typename hp::DoFHandler<dim,spacedim>::active_cell_iterator> ordering_cells_in_patch(typename hp::DoFHandler<dim,spacedim>::active_cell_iterator cell, std::set<typename hp::DoFHandler<dim,spacedim>::active_cell_iterator> cells_in_patch);
     
     hp::QCollection<dim> q_collection;
+    
+    hp::QCollection<dim> q_boundary_collection;
         
     hp::FECollection<dim,spacedim> fe_collection;
         
@@ -108,6 +113,14 @@ private:
     std::array<unsigned int,4> rotated_vertices(const unsigned int local_face_id);
 
     std::vector<unsigned int> get_diagonal_dof_id_to_ex(typename hp::DoFHandler<dim,spacedim>::active_cell_iterator cell_0, typename hp::DoFHandler<dim,spacedim>::active_cell_iterator cell_neighbour, unsigned int ex_index, unsigned int n_element);
+    
+    Quadrature<dim> get_adaptive_quadrature(int L, Quadrature<2> qpts);
+    
+    Quadrature<dim> edge_cell_boundary_quadrature();
+    
+    Quadrature<dim> corner_cell_boundary_quadrature();
+    
+    Quadrature<dim> empty_boundary_quadrature();
 
 };
 

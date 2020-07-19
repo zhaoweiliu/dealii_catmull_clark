@@ -58,6 +58,13 @@ Tensor<1,dim> polynomials_Catmull_Clark<dim>::regular::grads( const unsigned int
 }
 
 template<int dim>
+Tensor<2,dim> polynomials_Catmull_Clark<dim>::regular::grad_grads( const unsigned int i, const Point<dim> &unit_point) const
+{
+    TensorProductPolynomials<dim> tp_poly(polys_1d);
+    return tp_poly.compute_grad_grad(i, unit_point);
+}
+
+template<int dim>
 void polynomials_Catmull_Clark<dim>::two_ends_truncated::
 compute(const Point<dim> &unit_point,
         std::vector<double>&values,
@@ -92,6 +99,16 @@ Tensor<1,dim> polynomials_Catmull_Clark<dim>::two_ends_truncated::grads(const un
     TensorProductPolynomials<dim> tp_poly(polys_1d_end);
     return tp_poly.compute_grad(i, unit_point);
 }
+
+
+
+template<int dim>
+Tensor<2,dim> polynomials_Catmull_Clark<dim>::two_ends_truncated::grad_grads(const unsigned int i, const Point<dim> &unit_point) const
+{
+    TensorProductPolynomials<dim> tp_poly(polys_1d_end);
+    return tp_poly.compute_grad_grad(i, unit_point);
+}
+
 
 
 template<int dim>
@@ -145,6 +162,22 @@ Tensor<1,dim> polynomials_Catmull_Clark<dim>::one_end_truncated::grads(const uns
     grads[0] = pols_1[b].derivative().value(unit_point[0])*pols_2[a].value(unit_point[1]);
     grads[1] = pols_1[b].value(unit_point[0])*pols_2[a].derivative().value(unit_point[1]);
     return grads;
+}
+
+template<int dim>
+Tensor<2,dim> polynomials_Catmull_Clark<dim>::one_end_truncated::grad_grads(const unsigned int i, const Point<dim> &unit_point) const
+{
+    unsigned int a = i/4;
+    unsigned int b = i - a*4;
+    Tensor<2,dim> grad_grads;
+    grad_grads[0][0] = pols_1[b].derivative().derivative().value(unit_point[0])*pols_2[a].value(unit_point[1]);
+    
+    grad_grads[0][1] = pols_1[b].derivative().value(unit_point[0])*pols_2[a].derivative().value(unit_point[1]);
+    
+    grad_grads[1][0] = pols_1[b].derivative().value(unit_point[0])*pols_2[a].derivative().value(unit_point[1]);
+
+    grad_grads[1][1] = pols_1[b].value(unit_point[0])*pols_2[a].derivative().derivative().value(unit_point[1]);
+    return grad_grads;
 }
 
 template class polynomials_Catmull_Clark<1>;
