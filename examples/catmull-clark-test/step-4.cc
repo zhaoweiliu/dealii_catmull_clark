@@ -76,84 +76,13 @@ void vtk_plot(const std::string &filename, const hp::DoFHandler<2, 3> &dof_handl
     vtkSmartPointer<vtkUnstructuredGrid> grid = vtkUnstructuredGrid::New();
     vtkSmartPointer<vtkPoints> points = vtkPoints::New();
     vtkSmartPointer<vtkDoubleArray> function = vtkDoubleArray::New();
-    vtkSmartPointer<vtkDoubleArray> a1 = vtkDoubleArray::New();
-    vtkSmartPointer<vtkDoubleArray> a2 = vtkDoubleArray::New();
-    vtkSmartPointer<vtkDoubleArray> a3 = vtkDoubleArray::New();
-    vtkSmartPointer<vtkDoubleArray> a11 = vtkDoubleArray::New();
-    vtkSmartPointer<vtkDoubleArray> a12 = vtkDoubleArray::New();
-    vtkSmartPointer<vtkDoubleArray> a22 = vtkDoubleArray::New();
-    vtkSmartPointer<vtkDoubleArray> dN1a1 = vtkDoubleArray::New();
-    vtkSmartPointer<vtkDoubleArray> dN1a2 = vtkDoubleArray::New();
-    vtkSmartPointer<vtkDoubleArray> dN2a1 = vtkDoubleArray::New();
-    vtkSmartPointer<vtkDoubleArray> dN2a2 = vtkDoubleArray::New();
 
-
-    function->SetNumberOfComponents(3);
+    function->SetNumberOfComponents(4);
     function->SetName("disp");
     function->SetComponentName(0, "x");
     function->SetComponentName(1, "y");
     function->SetComponentName(2, "z");
-//    function->SetComponentName(3, "magnitude");
-
-    a1->SetNumberOfComponents(3);
-    a1->SetName("a1");
-    a1->SetComponentName(0, "dxdxi");
-    a1->SetComponentName(1, "dydxi");
-    a1->SetComponentName(2, "dzdxi");
-    
-    a2->SetNumberOfComponents(3);
-    a2->SetName("a2");
-    a2->SetComponentName(0, "dxdeta");
-    a2->SetComponentName(1, "dydeta");
-    a2->SetComponentName(2, "dzdeta");
-    
-    a3->SetNumberOfComponents(3);
-    a3->SetName("a3");
-    a3->SetComponentName(0, "n1");
-    a3->SetComponentName(1, "n2");
-    a3->SetComponentName(2, "n3");
-    
-    a11->SetNumberOfComponents(3);
-    a11->SetName("a11");
-    a11->SetComponentName(0, "d2xdxi2");
-    a11->SetComponentName(1, "d2ydxi2");
-    a11->SetComponentName(2, "d2zdxi2");
-    
-    a12->SetNumberOfComponents(3);
-    a12->SetName("a12");
-    a12->SetComponentName(0, "d2xdxideta");
-    a12->SetComponentName(1, "d2ydxideta");
-    a12->SetComponentName(2, "d2zdxideta");
-    
-    a22->SetNumberOfComponents(3);
-    a22->SetName("a22");
-    a22->SetComponentName(0, "d2xdeta2");
-    a22->SetComponentName(1, "d2ydeta2");
-    a22->SetComponentName(2, "d2zdeta2");
-    
-    dN1a1->SetNumberOfComponents(3);
-    dN1a1->SetName("dN1a1");
-    dN1a1->SetComponentName(0, "x");
-    dN1a1->SetComponentName(1, "y");
-    dN1a1->SetComponentName(2, "z");
-
-    dN1a2->SetNumberOfComponents(3);
-    dN1a2->SetName("dN1a2");
-    dN1a2->SetComponentName(0, "x");
-    dN1a2->SetComponentName(1, "y");
-    dN1a2->SetComponentName(2, "z");
-    
-    dN2a1->SetNumberOfComponents(3);
-    dN2a1->SetName("dN2a1");
-    dN2a1->SetComponentName(0, "x");
-    dN2a1->SetComponentName(1, "y");
-    dN2a1->SetComponentName(2, "z");
-    
-    dN2a2->SetNumberOfComponents(3);
-    dN2a2->SetName("dN2a2");
-    dN2a2->SetComponentName(0, "x");
-    dN2a2->SetComponentName(1, "y");
-    dN2a2->SetComponentName(2, "z");
+    function->SetComponentName(3, "magnitude");
     
     int sample_offset = 0;
     int count = 0;
@@ -172,7 +101,6 @@ void vtk_plot(const std::string &filename, const hp::DoFHandler<2, 3> &dof_handl
                 double u = iu*seg_length;
                 double v = iv*seg_length;
 //
-//                Point<3,double> spt = mapping[cell->active_fe_index()].transform_unit_to_real_cell(cell, {u,v});
                 Point<3,double> spt = {0,0,0};
                 Tensor<1,3,double> disp({0,0,0});
                 std::vector<Tensor<1,3>> JJ(3);
@@ -181,37 +109,7 @@ void vtk_plot(const std::string &filename, const hp::DoFHandler<2, 3> &dof_handl
                 for (unsigned int idof = 0; idof < dofs_per_cell; ++idof)
                 {
                     double shapes = dof_handler.get_fe(cell->active_fe_index()).shape_value(idof, {u,v});
-                    Tensor<1, 2> shape_grad = dof_handler.get_fe(cell->active_fe_index()).shape_grad(idof, {u,v});
-                    Tensor<2, 2> shape_grad_grad = dof_handler.get_fe(cell->active_fe_index()).shape_grad_grad(idof, {u,v});
-                    
-//                    std::cout << shape_grad_grad<<"\n";
 
-                    for (unsigned int jj = 0; jj < 2; ++jj) {
-                        switch (idof % 3) {
-                            case 0:
-                                JJ[jj][0] += shape_grad[jj] * vertices[local_dof_indices[idof]];
-                                break;
-                            case 1:
-                                JJ[jj][1] += shape_grad[jj] * vertices[local_dof_indices[idof]];
-                                break;
-                            case 2:
-                                JJ[jj][2] += shape_grad[jj] * vertices[local_dof_indices[idof]];
-                                break;
-                        }
-                        for (unsigned int ii = 0; ii < 2; ++ii) {
-                            switch (idof % 3) {
-                                case 0:
-                                    JJ_grad[jj][ii][0] += shape_grad_grad[jj][ii] * vertices[local_dof_indices[idof]];
-                                    break;
-                                case 1:
-                                    JJ_grad[jj][ii][1] += shape_grad_grad[jj][ii] * vertices[local_dof_indices[idof]];
-                                    break;
-                                case 2:
-                                    JJ_grad[jj][ii][2] += shape_grad_grad[jj][ii] * vertices[local_dof_indices[idof]];
-                                    break;
-                            }
-                        }
-                    }
                     sol += shapes * solution[local_dof_indices[idof]];
                     
                     switch (idof % 3) {
@@ -229,56 +127,18 @@ void vtk_plot(const std::string &filename, const hp::DoFHandler<2, 3> &dof_handl
                             break;
                     }
                 }
-                
-                Tensor<1, 2> shape_grad = dof_handler.get_fe(cell->active_fe_index()).shape_grad(0, {u,v});
-                
+                                
                 JJ[2] = cross_product_3d(JJ[0],JJ[1]);
                 
                 double coordsdata [3] = {spt[0],spt[1],spt[2]};
 
                 points->InsertPoint(sample_offset+count, coordsdata);
-                
-                dN1a1->InsertComponent(sample_offset+count, 0, shape_grad[0]*JJ[0][0]);
-                dN1a1->InsertComponent(sample_offset+count, 1, shape_grad[0]*JJ[0][1]);
-                dN1a1->InsertComponent(sample_offset+count, 2, shape_grad[0]*JJ[0][2]);
-                
-                dN1a2->InsertComponent(sample_offset+count, 0, shape_grad[0]*JJ[1][0]);
-                dN1a2->InsertComponent(sample_offset+count, 1, shape_grad[0]*JJ[1][1]);
-                dN1a2->InsertComponent(sample_offset+count, 2, shape_grad[0]*JJ[1][2]);
-
-                dN2a1->InsertComponent(sample_offset+count, 0, shape_grad[1]*JJ[0][0]);
-                dN2a1->InsertComponent(sample_offset+count, 1, shape_grad[1]*JJ[0][1]);
-                dN2a1->InsertComponent(sample_offset+count, 2, shape_grad[1]*JJ[0][2]);
-                
-                dN2a2->InsertComponent(sample_offset+count, 0, shape_grad[1]*JJ[1][0]);
-                dN2a2->InsertComponent(sample_offset+count, 1, shape_grad[1]*JJ[1][1]);
-                dN2a2->InsertComponent(sample_offset+count, 2, shape_grad[1]*JJ[1][2]);
-                
+                                
                 function->InsertComponent(sample_offset+count, 0, disp[0]);
                 function->InsertComponent(sample_offset+count, 1, disp[1]);
                 function->InsertComponent(sample_offset+count, 2, disp[2]);
-                
-                a1->InsertComponent(sample_offset+count, 0, JJ[0][0]);
-                a1->InsertComponent(sample_offset+count, 1, JJ[0][1]);
-                a1->InsertComponent(sample_offset+count, 2, JJ[0][2]);
-                a2->InsertComponent(sample_offset+count, 0, JJ[1][0]);
-                a2->InsertComponent(sample_offset+count, 1, JJ[1][1]);
-                a2->InsertComponent(sample_offset+count, 2, JJ[1][2]);
-                a3->InsertComponent(sample_offset+count, 0, JJ[2][0]);
-                a3->InsertComponent(sample_offset+count, 1, JJ[2][1]);
-                a3->InsertComponent(sample_offset+count, 2, JJ[2][2]);
-                
-                a11->InsertComponent(sample_offset+count, 0, JJ_grad[0][0][0]);
-                a11->InsertComponent(sample_offset+count, 1, JJ_grad[0][0][1]);
-                a11->InsertComponent(sample_offset+count, 2, JJ_grad[0][0][2]);
-                
-                a12->InsertComponent(sample_offset+count, 0, JJ_grad[0][1][0]);
-                a12->InsertComponent(sample_offset+count, 1, JJ_grad[0][1][1]);
-                a12->InsertComponent(sample_offset+count, 2, JJ_grad[0][1][2]);
-                
-                a22->InsertComponent(sample_offset+count, 0, JJ_grad[1][1][0]);
-                a22->InsertComponent(sample_offset+count, 1, JJ_grad[1][1][1]);
-                a22->InsertComponent(sample_offset+count, 2, JJ_grad[1][1][2]);
+                function->InsertComponent(sample_offset+count, 3, disp.norm());
+
 
                 ++count;
             }
@@ -301,16 +161,6 @@ void vtk_plot(const std::string &filename, const hp::DoFHandler<2, 3> &dof_handl
     }
     grid -> SetPoints(points);
     grid -> GetPointData() -> AddArray(function);
-    grid -> GetPointData() -> AddArray(a1);
-    grid -> GetPointData() -> AddArray(a2);
-    grid -> GetPointData() -> AddArray(a3);
-    grid -> GetPointData() -> AddArray(a11);
-    grid -> GetPointData() -> AddArray(a12);
-    grid -> GetPointData() -> AddArray(dN1a1);
-    grid -> GetPointData() -> AddArray(dN1a2);
-    grid -> GetPointData() -> AddArray(dN2a1);
-    grid -> GetPointData() -> AddArray(dN2a2);
-
 
     vtkSmartPointer<vtkXMLUnstructuredGridWriter> writer = vtkXMLUnstructuredGridWriter::New();
     writer -> SetFileName(filename.c_str());
@@ -657,10 +507,6 @@ int main()
                     }
                 }
                 
-//                auto qp = q_collection[cell->active_fe_index()].point(q_point);
-//                Tensor<1, dim> shape_der = fe_collection[cell->active_fe_index()].shape_grad(i_shape*spacedim, qp);
-//                Tensor<2, dim> shape_der2 = fe_collection[cell->active_fe_index()].shape_grad_grad(i_shape*spacedim, qp);
-                
                 //  computation of the B operator (strains) for i_shape function
                 Tensor<2, spacedim> BN; // membrane part
                 Tensor<2, spacedim> BM; // bending part
@@ -677,9 +523,6 @@ int main()
                 
                 bn_vec[i_shape] = BN;
                 bm_vec[i_shape] = BM;
-                
-//                std::cout <<  BM << "\n";
-
                 
             } // loop over shape functions
             
@@ -726,8 +569,6 @@ int main()
 //            if ( cell->vertex(ivert)[1] == 1)
             {
                 unsigned int dof_id = cell->vertex_dof_index(ivert,0, cell->active_fe_index());
-                //                std:: cout << cell->vertex(ivert)[0] <<" ";
-                //                std:: cout << cell->vertex(ivert)[1] <<std::endl;
                 fix_dof_indices.push_back(dof_id);
                 fix_dof_indices.push_back(dof_id+1);
                 fix_dof_indices.push_back(dof_id+2);
@@ -770,11 +611,6 @@ int main()
     preconditioner_2.initialize(stiffness_matrix, 1.2);
     cg_2.solve(stiffness_matrix, solution_disp, force_rhs, preconditioner_2);
     
-//        SparseDirectUMFPACK direct_solver;
-//        direct_solver.initialize(sparsity_pattern);
-//        solution_disp = force_rhs;
-//        direct_solver.solve(stiffness_matrix,solution_disp);
-    
 //    std::cout << solution_disp << std::endl;
     
 //    for (const auto &cell : dof_handler.active_cell_iterators())
@@ -797,7 +633,7 @@ int main()
     
 //    DataOut<dim, hp::DoFHandler<dim,spacedim>> data_out;
 //    data_out.attach_dof_handler(dof_handler);
-//    data_out.add_data_vector(solution, "solution");
+//    data_out.add_data_vector(solution_disp, "solution");
 //    data_out.build_patches(4);
 //    const std::string filename =
 //      "solution-CC.vtk";
