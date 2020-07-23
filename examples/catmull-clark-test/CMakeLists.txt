@@ -25,7 +25,7 @@ SET(TARGET_SRC
   ${TARGET}.cc
   ${SRC_FILES}
   ${HEAD_FILES}
-  ${VTK_LIBRARIES}
+  #${VTK_LIBRARIES}
   )
 
 # Usually, you will not need to modify anything beyond this point...
@@ -44,9 +44,9 @@ IF(NOT ${deal.II_FOUND})
 ENDIF()
 
 # look for VTK package
-FIND_PACKAGE( VTK REQUIRED )
-include_directories( ${VTK_INCLUDE_DIRS} )
-set(THIS_LINK_LIBS ${THIS_LINK_LIBS} ${VTK_LIBRARIES})
+#FIND_PACKAGE( VTK REQUIRED )
+#include_directories( ${VTK_INCLUDE_DIRS} )
+#set(THIS_LINK_LIBS ${THIS_LINK_LIBS} ${VTK_LIBRARIES})
 #target_link_libraries(TARGET ${VTK_LIBRARIES})
 
 DEAL_II_INITIALIZE_CACHED_VARIABLES()
