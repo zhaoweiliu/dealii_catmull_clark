@@ -34,15 +34,15 @@ DEAL_II_NAMESPACE_OPEN
 // &dof_handler, hp::FECollection<2, 3>& fe_collection, const unsigned int
 // n_element);
 
-void
-  catmull_clark_create_fe_quadrature_and_mapping_collections_and_distribute_dofs(
-    hp::DoFHandler<2, 3> &       dof_handler,
-    hp::FECollection<2, 3> &     fe_collection,
-    Vector<double> &             vec_values,
-    hp::MappingCollection<2, 3> &mapping_collection,
-    hp::QCollection<2> &         q_collection,
-    hp::QCollection<2> &         boundary_q_collection,
-    const unsigned int           n_element);
+//void
+//  catmull_clark_create_fe_quadrature_and_mapping_collections_and_distribute_dofs(
+//    hp::DoFHandler<2, 3> &       dof_handler,
+//    hp::FECollection<2, 3> &     fe_collection,
+//    Vector<double> &             vec_values,
+//    hp::MappingCollection<2, 3> &mapping_collection,
+//    hp::QCollection<2> &         q_collection,
+//    hp::QCollection<2> &         boundary_q_collection,
+//    const unsigned int           n_element);
 
 template <int dim, int spacedim>
 class CatmullClark : public NonLocalDoFHandler<dim, spacedim>
@@ -89,7 +89,7 @@ public:
     return indices_mapping;
   }
 
-  void new_dofs_for_cells(hp::DoFHandler<dim, spacedim> &dof_handler,
+  void new_order_for_cells(hp::DoFHandler<dim, spacedim> &dof_handler,
                           unsigned int                   n_element);
 
   virtual std::vector<types::global_dof_index> get_non_local_dof_indices(
@@ -100,6 +100,11 @@ public:
   {
     return 0;
   }
+    
+  std::shared_ptr<const NonLocalDoFHandler<dim, spacedim>> reference_ptr()
+  {
+    return std::make_shared<CatmullClark<dim, spacedim>>(*this);
+  }
 
 private:
   std::map<unsigned int, std::vector<std::pair<unsigned int, unsigned int>>>
@@ -108,6 +113,11 @@ private:
   std::vector<
     std::set<typename hp::DoFHandler<dim, spacedim>::active_cell_iterator>>
     cell_patch_vector;
+    
+  std::vector<
+    std::map<unsigned int,
+    typename hp::DoFHandler<dim, spacedim>::active_cell_iterator>>
+    ordered_cell_patch_vector;
 
   std::vector<
     std::set<typename hp::DoFHandler<dim, spacedim>::active_cell_iterator>>
@@ -116,7 +126,7 @@ private:
   std::map<unsigned int,
            typename hp::DoFHandler<dim, spacedim>::active_cell_iterator>
   ordering_cells_in_patch(
-    typename hp::DoFHandler<dim, spacedim>::active_cell_iterator cell,
+    typename hp::DoFHandler<dim,spacedim>::active_cell_iterator cell,
     std::set<typename hp::DoFHandler<dim, spacedim>::active_cell_iterator>
       cells_in_patch);
 
@@ -130,55 +140,57 @@ private:
 
   std::map<unsigned int, unsigned int> indices_mapping;
 
-  std::vector<unsigned int> get_neighbour_dofs(
+  const std::vector<unsigned int> get_neighbour_dofs(
     typename hp::DoFHandler<dim, spacedim>::active_cell_iterator cell_0,
     typename hp::DoFHandler<dim, spacedim>::active_cell_iterator cell_neighbour,
-    unsigned int                                                 n_element);
+    unsigned int                                                 n_element) const;
 
-  std::vector<unsigned int> opposite_face_dofs(unsigned int i, unsigned int j);
+  const std::vector<unsigned int> opposite_face_dofs(unsigned int i, unsigned int j) const;
 
   //    Vector<double> vec_values;
 
-  unsigned int opposite_vertex_dofs(unsigned int i);
+  const unsigned int opposite_vertex_dofs(unsigned int i) const;
 
   const std::array<unsigned int, 4>
-  vertex_face_loop(const unsigned int local_vertex_id);
+  vertex_face_loop(const unsigned int local_vertex_id) const;
 
   const std::array<unsigned int, 3>
-  next_vertices(const unsigned int local_vertex_id);
+  next_vertices(const unsigned int local_vertex_id) const;
 
   const std::array<unsigned int, 3>
-  loop_faces(const unsigned int local_face_id);
+  loop_faces(const unsigned int local_face_id) const;
 
   const std::array<unsigned int, 2>
-  opposite_vertices(const unsigned int local_face_id);
+  opposite_vertices(const unsigned int local_face_id) const;
 
   const std::array<unsigned int, 2>
-  faces_not_on_boundary(const std::vector<unsigned int> m);
+  faces_not_on_boundary(const std::vector<unsigned int> m) const;
 
   const std::array<unsigned int, 4>
-  verts_id_on_boundary(const std::vector<unsigned int> m);
+  verts_id_on_boundary(const std::vector<unsigned int> m) const;
 
   unsigned int common_face_local_id(
     typename hp::DoFHandler<dim, spacedim>::active_cell_iterator cell_0,
-    typename hp::DoFHandler<dim, spacedim>::active_cell_iterator cell);
+    typename hp::DoFHandler<dim, spacedim>::active_cell_iterator cell) const;
 
-  std::array<unsigned int, 4>
-  rotated_vertices(const unsigned int local_face_id);
+  const std::array<unsigned int, 4>
+  rotated_vertices(const unsigned int local_face_id) const;
 
-  std::vector<unsigned int> get_diagonal_dof_id_to_ex(
+  const std::vector<unsigned int> get_diagonal_dof_id_to_ex(
     typename hp::DoFHandler<dim, spacedim>::active_cell_iterator cell_0,
     typename hp::DoFHandler<dim, spacedim>::active_cell_iterator cell_neighbour,
     unsigned int                                                 ex_index,
-    unsigned int                                                 n_element);
+    unsigned int                                                 n_element) const;
 
-  Quadrature<dim> get_adaptive_quadrature(int L, Quadrature<2> qpts);
+  const Quadrature<dim> get_adaptive_quadrature(int L, Quadrature<2> qpts) const;
 
-  Quadrature<dim> edge_cell_boundary_quadrature();
+  const Quadrature<dim> edge_cell_boundary_quadrature() const;
 
-  Quadrature<dim> corner_cell_boundary_quadrature();
+  const Quadrature<dim> corner_cell_boundary_quadrature() const;
 
-  Quadrature<dim> empty_boundary_quadrature();
+  const Quadrature<dim> empty_boundary_quadrature() const;
+     
+  unsigned int n_element;
 };
 
 DEAL_II_NAMESPACE_CLOSE

@@ -377,6 +377,22 @@ int main()
 
   catmull_clark->set_MappingCollection(dof_handler, vec_values, 3);
 
+  mapping_collection    = catmull_clark->get_MappingCollection();
+    
+ std::vector<types::global_dof_index> dof_indices;
+    
+  for (const auto &cell : dof_handler.active_cell_iterators())
+     {
+       const unsigned int dofs_per_cell = cell->get_fe().dofs_per_cell;
+       dof_indices.resize(dofs_per_cell);
+       cell->get_dof_indices(dof_indices);
+         
+       for(unsigned int i = 0; i < dofs_per_cell;++i)
+          std::cout << dof_indices[i] <<" ";
+         
+       std::cout << "\n";
+     }
+
   //   catmull_clark_create_fe_quadrature_and_mapping_collections_and_distribute_dofs(
   //     dof_handler,
   //     fe_collection,
@@ -400,22 +416,22 @@ int main()
   Vector<double> force_rhs;
 
 
-  DynamicSparsityPattern dynamic_sparsity_pattern(dof_handler.n_dofs());
-  DoFTools::make_sparsity_pattern(dof_handler,
-                                  dynamic_sparsity_pattern,
-                                  constraints);
-  sparsity_pattern.copy_from(dynamic_sparsity_pattern);
-  std::ofstream out("CC_sparsity_pattern.svg");
-  sparsity_pattern.print_svg(out);
-
-  system_matrix.reinit(sparsity_pattern);
-  stiffness_matrix.reinit(sparsity_pattern);
-
-  solution.reinit(dof_handler.n_dofs());
-  solution_disp.reinit(dof_handler.n_dofs());
-
-  system_rhs.reinit(dof_handler.n_dofs());
-  force_rhs.reinit(dof_handler.n_dofs());
+//  DynamicSparsityPattern dynamic_sparsity_pattern(dof_handler.n_dofs());
+//  DoFTools::make_sparsity_pattern(dof_handler,
+//                                  dynamic_sparsity_pattern,
+//                                  constraints);
+//  sparsity_pattern.copy_from(dynamic_sparsity_pattern);
+//  std::ofstream out("CC_sparsity_pattern.svg");
+//  sparsity_pattern.print_svg(out);
+//
+//  system_matrix.reinit(sparsity_pattern);
+//  stiffness_matrix.reinit(sparsity_pattern);
+//
+//  solution.reinit(dof_handler.n_dofs());
+//  solution_disp.reinit(dof_handler.n_dofs());
+//
+//  system_rhs.reinit(dof_handler.n_dofs());
+//  force_rhs.reinit(dof_handler.n_dofs());
 
   hp::FEValues<dim, spacedim> hp_fe_values(
     mapping_collection,
@@ -453,6 +469,14 @@ int main()
       const FEValues<dim, spacedim> &fe_values =
         hp_fe_values.get_present_fe_values();
       std::vector<double> rhs_values(fe_values.n_quadrature_points);
+        
+      auto fe_non_local_dofhandler = cell->get_fe().base_element(0).get_non_local_dof_handler();
+      auto non_local_indices = fe_non_local_dofhandler->get_non_local_dof_indices(*cell);
+        for (unsigned int id = 0; id < non_local_indices.size(); ++id) {
+            std::cout << non_local_indices[id] << " ";
+        }
+        
+        
       for (unsigned int q_point = 0; q_point < fe_values.n_quadrature_points;
            ++q_point)
         {

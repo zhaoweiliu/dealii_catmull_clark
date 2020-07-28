@@ -33,15 +33,23 @@ template <int dim, int spacedim>
 class FE_Catmull_Clark : public FiniteElement<dim, spacedim>
 {
 public:
-  FE_Catmull_Clark(const unsigned int valence,
-                   const unsigned int n_components = 1,
-                   const bool         dominate     = false);
+//  FE_Catmull_Clark(const unsigned int valence,
+//                   const unsigned int n_components = 1,
+//                   const bool         dominate     = false);
 
-  FE_Catmull_Clark(const unsigned int                valence,
-                   const std::array<unsigned int, 4> verts_id,
-                   const unsigned int                n_components = 1,
-                   const bool                        dominate     = false);
+//  FE_Catmull_Clark(const unsigned int                valence,
+//                   const std::array<unsigned int, 4> verts_id,
+//                   const unsigned int                n_components = 1,
+//                   const bool                        dominate     = false);
+    
+    FE_Catmull_Clark(const unsigned int                valence,
+                     const std::array<unsigned int, 4> verts_id,
+                     std::shared_ptr<const NonLocalDoFHandler<dim, spacedim>>                    cc_object,
+                     const unsigned int                n_components = 1,
+                     const bool                        dominate     = false);
 
+
+    
   virtual std::unique_ptr<FiniteElement<dim, spacedim>> clone() const override;
 
   /**
@@ -156,18 +164,16 @@ public:
 
     HessianVector shape_hessian;
 
-    // second derivative
   };
 
-
   virtual std::shared_ptr<const NonLocalDoFHandler<dim, spacedim>>
-  get_non_local_dof_handler() const
+  get_non_local_dof_handler() const override
   {
     return non_local_dh;
   }
 
 private:
-  std::shared_ptr<CatmullClark<dim, spacedim>> non_local_dh;
+  std::shared_ptr<const NonLocalDoFHandler<dim, spacedim>> non_local_dh;
 
   const unsigned int valence;
 

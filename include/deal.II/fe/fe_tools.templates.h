@@ -340,7 +340,7 @@ namespace FETools
         }
       }
 
-      // Assert(total_index == n_shape_functions, ExcInternalError());
+      Assert(total_index == n_shape_functions, ExcInternalError());
 
       return retval;
     }
@@ -614,7 +614,7 @@ namespace FETools
         }
       }
       
-      // Assert(total_index == n_shape_functions, ExcInternalError());
+      Assert(total_index == n_shape_functions, ExcInternalError());
 
       // now copy the vector<vector<bool> > into a vector<ComponentMask>.
       // this appears complicated but we do it this way since it's just

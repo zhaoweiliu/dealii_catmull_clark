@@ -15,23 +15,252 @@
 DEAL_II_NAMESPACE_OPEN
 
 
-template <int dim, int spacedim>
-FE_Catmull_Clark<dim,spacedim>::FE_Catmull_Clark(const unsigned int val, const unsigned int n_components, const bool dominate)
-: FiniteElement<dim,spacedim> (
-    FiniteElementData<dim>({1,0,0,(val == 1? 5:2*val+4)},
-                            n_components,
-                            3,
-                            FiniteElementData<dim>::H2),
-    std::vector<bool>(2*val+8,true),
-    std::vector<ComponentMask>(2*val+8,std::vector<bool>(1,true))),
-    valence(val),
-    dominate(dominate)
-{}
+//template <int dim, int spacedim>
+//FE_Catmull_Clark<dim,spacedim>::FE_Catmull_Clark(const unsigned int val, const unsigned int n_components, const bool dominate)
+//: FiniteElement<dim,spacedim> (
+//    FiniteElementData<dim>({1,0,0,(val == 1? 5:2*val+4)},
+//                            n_components,
+//                            3,
+//                            FiniteElementData<dim>::H2),
+//    std::vector<bool>(2*val+8,true),
+//    std::vector<ComponentMask>(2*val+8,std::vector<bool>(1,true))),
+//    valence(val),
+//    dominate(dominate)
+//{}
+
+
+
+//template <int dim, int spacedim>
+//FE_Catmull_Clark<dim,spacedim>::FE_Catmull_Clark(const unsigned int val, const std::array<unsigned int, 4> verts_id, const unsigned int n_components, const bool dominate)
+//: FiniteElement<dim,spacedim> (
+//    FiniteElementData<dim>({1,0,0,(val == 1? 5:2*val+4)},
+//                            n_components,
+//                            3,
+//                            FiniteElementData<dim>::H2),
+//    std::vector<bool>((val == 1? 9:2*val+8),true),
+//    std::vector<ComponentMask>((val == 1? 9:2*val+8),std::vector<bool>(1,true))),
+//    valence(val),
+//    dominate(dominate)
+////    non_local_dh()
+//{
+//    shapes_id_map.resize((valence == 1? 9:2*val+8));
+//    if (val == 1){
+//        /*
+//               6-----7-----8
+//               |     |     |
+//               |     |     |
+//               |     |     |
+//               3-----4-----5
+//               |     |     |
+//               |     |     |
+//               |     |     |
+//               0-----1-----2     */
+//
+//        shapes_id_map[verts_id[0]] = 0;
+//        shapes_id_map[verts_id[1]] = 3;
+//        shapes_id_map[verts_id[2]] = 4;
+//        shapes_id_map[verts_id[3]] = 1;
+//        shapes_id_map[4] = 2;
+//        shapes_id_map[5] = 5;
+//        shapes_id_map[6] = 8;
+//        shapes_id_map[7] = 7;
+//        shapes_id_map[8] = 6;
+//
+//        /* -> u j_shape
+//          |    0-----1-----2
+//       v \/    |     |     |
+//               |     |     |
+//               |     |     |
+//               3-----4-----5
+//               |     |     |
+//               |     |     |
+//               |     |     |
+//               6-----7-----8     */
+//
+//        /*
+//        indices mapping for non-local dofs
+//        0(4)-----1(5)----2(6)
+//        |        |        |
+//        |        |        |
+//        |        |        |
+//        ?--------?-------3(7)
+//        |        |        |
+//        |        |        |
+//        |        |        |
+//        ?--------?-------4(8)     */
+//
+//
+//    }
+//    else if (val == 2){
+//        /*
+//         8-----9----10----11
+//         |     |     |     |
+//         |     |     |     |
+//         |     |     |     |
+//         4-----5-----6-----7
+//         |     |     |     |
+//         |     |     |     |
+//         |     |     |     |
+//         0-----1-----2-----3     */
+//
+//        shapes_id_map[verts_id[0]] = 2;
+//        shapes_id_map[verts_id[1]] = 1;
+//        shapes_id_map[verts_id[2]] = 5;
+//        shapes_id_map[verts_id[3]] = 6;
+//        shapes_id_map[4] = 10;
+//        shapes_id_map[5] = 9;
+//        shapes_id_map[6] = 8;
+//        shapes_id_map[7] = 4;
+//        shapes_id_map[8] = 0;
+//        shapes_id_map[9] = 3;
+//        shapes_id_map[10] = 7;
+//        shapes_id_map[11] = 11;
+//
+//        /* -> u
+//         0-----1-----2-----3 v|
+//         |     |     |     |  \/
+//         |     |     |     |
+//         |     |     |     |
+//         4-----5-----6-----7
+//         |     |     |     |
+//         |     |     |     |
+//         |     |     |     |
+//         8-----9-----10----11     */
+//
+//        /*
+//        7(11)----0(4)-----1(5)------2(6)
+//        |        |         |        |
+//        |        |         |        |
+//        |        |         |        |
+//        6(10)----?---------?--------3(7)
+//        |        |         |        |
+//        |        |         |        |
+//        |        |         |        |
+//        5(9)-----?---------?--------4(8)     */
+//    }
+//    else if (val == 4)
+//    {
+//        /*
+//         12----13----14----15
+//         |     |     |     |
+//         |     |     |     |
+//         |     |     |     |
+//         8-----9-----10----11
+//         |     |     |     |
+//         |     |     |     |
+//         |     |     |     |
+//         4-----5-----6-----7
+//         |     |     |     |
+//         |     |     |     |
+//         |     |     |     |
+//         0-----1-----2-----3
+//         */
+//
+//        shapes_id_map[0] = 5;
+//        shapes_id_map[1] = 6;
+//        shapes_id_map[2] = 9;
+//        shapes_id_map[3] = 10;
+//        shapes_id_map[4] = 1;
+//        shapes_id_map[5] = 2;
+//        shapes_id_map[6] = 3;
+//        shapes_id_map[7] = 7;
+//        shapes_id_map[8] = 11;
+//        shapes_id_map[9] = 15;
+//        shapes_id_map[10] = 14;
+//        shapes_id_map[11] = 13;
+//        shapes_id_map[12] = 12;
+//        shapes_id_map[13] = 8;
+//        shapes_id_map[14] = 4;
+//        shapes_id_map[15] = 0;
+//
+//        /*
+//         0-----1-----2-----3
+//         |     |     |     |
+//         |     |     |     |
+//         |     |     |     |
+//         4-----5-----6-----7
+//         |     |     |     |
+//         |     |     |     |
+//         |     |     |     |
+//         8-----9-----10----11
+//         |     |     |     |
+//         |     |     |     |
+//         |     |     |     |
+//         12---13-----14----15
+//         */
+//
+//        /*
+//        indices mapping for non-local dofs
+//         11(15)---0(4)-----1(5)-----2(6)
+//         |        |        |        |
+//         |        |        |        |
+//         |        |        |        |
+//         10(14)--(0)------(1)-------3(7)
+//         |        |        |        |
+//         |        |        |        |
+//         |        |        |        |
+//         9(13)---(2)------(3)-------4(8)
+//         |        |        |        |
+//         |        |        |        |
+//         |        |        |        |
+//         8(12)----7(11)----6(10)----5(9)
+//         */
+//
+//    }else
+//    {
+//        // object_index is the index of vertex;
+//        shapes_id_map[verts_id[0]] = 0;
+//        shapes_id_map[verts_id[1]] = 5;
+//        shapes_id_map[verts_id[2]] = 4;
+//        shapes_id_map[verts_id[3]] = 3;
+//        shapes_id_map[4] = 1;
+//        shapes_id_map[5] = 2;
+//        for (unsigned int i = 6; i < 2*valence+8; ++i) {
+//            shapes_id_map[i] = i;
+//        }
+//        /*                   2v
+//                           /  |
+//                          /   |
+//                         /    |
+//         2v+7----2------1     *------8
+//         |       |      |    /      /
+//         |       |      |  ..     /
+//         |       |      |/      /
+//         2v+6----3------0------7
+//         |       |      |      |
+//         |       |      |      |
+//         |       |      |      |
+//         2v+5----4------5------6
+//         |       |      |      |
+//         |       |      |      |
+//         |       |      |      |
+//         2v+1---2v+2----2v+3---2v+4         */
+//
+//        /*                   2v-4
+//                           /  |
+//                          /   |
+//                         /    |
+//         2v+3-----1-----0     *------4
+//         |        |     |    /     /
+//         |        |     |  ..    /
+//         |        |     |/     /
+//         2v+2-----?-----?-----3
+//         |        |     |     |
+//         |        |     |     |
+//         |        |     |     |
+//         2v+1-----?-----?-----2
+//         |        |     |     |
+//         |        |     |     |
+//         |        |     |     |
+//         2v-3---2v-2---2v-1---2v         */
+//
+//    }
+//}
 
 
 
 template <int dim, int spacedim>
-FE_Catmull_Clark<dim,spacedim>::FE_Catmull_Clark(const unsigned int val, const std::array<unsigned int, 4> verts_id, const unsigned int n_components, const bool dominate)
+FE_Catmull_Clark<dim,spacedim>::FE_Catmull_Clark(const unsigned int val, const std::array<unsigned int, 4> verts_id, std::shared_ptr<const NonLocalDoFHandler<dim, spacedim>>  cc_object, const unsigned int n_components, const bool dominate)
 : FiniteElement<dim,spacedim> (
     FiniteElementData<dim>({1,0,0,(val == 1? 5:2*val+4)},
                             n_components,
@@ -42,19 +271,9 @@ FE_Catmull_Clark<dim,spacedim>::FE_Catmull_Clark(const unsigned int val, const s
     valence(val),
     dominate(dominate)
 {
+    non_local_dh = cc_object;
     shapes_id_map.resize((valence == 1? 9:2*val+8));
     if (val == 1){
-        // object_index is the id of two edges on the boundary;
-//        auto verts_id = verts_id_on_boundary(object_index);
-//        shapes_id_map[verts_id[0]] = 0;
-//        shapes_id_map[verts_id[1]] = 1;
-//        shapes_id_map[verts_id[2]] = 4;
-//        shapes_id_map[verts_id[3]] = 3;
-//        shapes_id_map[4] = 6;
-//        shapes_id_map[5] = 7;
-//        shapes_id_map[6] = 8;
-//        shapes_id_map[7] = 5;
-//        shapes_id_map[8] = 2;
         /*
                6-----7-----8
                |     |     |
@@ -102,19 +321,6 @@ FE_Catmull_Clark<dim,spacedim>::FE_Catmull_Clark(const unsigned int val, const s
         
     }
     else if (val == 2){
-//        shapes_id_map[verts_id[0]] = 1;
-//        shapes_id_map[verts_id[1]] = 2;
-//        shapes_id_map[verts_id[2]] = 6;
-//        shapes_id_map[verts_id[3]] = 5;
-//        shapes_id_map[4] = 9;
-//        shapes_id_map[5] = 10;
-//        shapes_id_map[6] = 11;
-//        shapes_id_map[7] = 7;
-//        shapes_id_map[8] = 3;
-//        shapes_id_map[9] = 0;
-//        shapes_id_map[10] = 4;
-//        shapes_id_map[11] = 8;
-        // object_index is the edge_id on boundary;
         /*
          8-----9----10----11
          |     |     |     |
@@ -163,24 +369,6 @@ FE_Catmull_Clark<dim,spacedim>::FE_Catmull_Clark(const unsigned int val, const s
     }
     else if (val == 4)
     {
-            // object_index dosen't matter;
-//        shapes_id_map[0] = 9;
-//        shapes_id_map[1] = 10;
-//        shapes_id_map[2] = 5;
-//        shapes_id_map[3] = 6;
-//        shapes_id_map[4] = 13;
-//        shapes_id_map[5] = 14;
-//        shapes_id_map[6] = 15;
-//        shapes_id_map[7] = 11;
-//        shapes_id_map[8] = 7;
-//        shapes_id_map[9] = 3;
-//        shapes_id_map[10] = 2;
-//        shapes_id_map[11] = 1;
-//        shapes_id_map[12] = 0;
-//        shapes_id_map[13] = 4;
-//        shapes_id_map[14] = 8;
-//        shapes_id_map[15] = 12;
-
         /*
          12----13----14----15
          |     |     |     |
