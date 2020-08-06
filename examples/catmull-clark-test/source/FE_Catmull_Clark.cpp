@@ -574,21 +574,33 @@ template<int dim, int spacedim>
 Tensor<1,dim> FE_Catmull_Clark<dim, spacedim>::shape_grad (const unsigned int i, const Point< dim > &p_0) const
 {
     Point<dim> p = rotate_around_midpoint(p_0, rotated_angle);
+    Tensor<2,dim> rotated_jacobian;
+    rotated_jacobian[0][0] = std::cos(rotated_angle);   // du'/du
+    rotated_jacobian[0][1] = - std::sin(rotated_angle); // du'/dv
+    rotated_jacobian[1][0] = std::sin(rotated_angle);   // dv'/du
+    rotated_jacobian[1][1] = std::cos(rotated_angle);   // dv'/dv
     unsigned int j = shapes_id_map[i];
-    if (valence == 4){
-        // i in [0,15];
-        return poly_reg.grads(j,p);
-    }else if(valence == 2){
-        // i in [0,11];
-        return poly_one_end.grads(j,p);
-    }else if (valence == 1){
-        // i in [0,8];
-        return poly_two_ends.grads(j,p);
-    }else{
-        // i in [0, 2*valence + 7];
-        std::cout << "\n warning: inefficiently compute shape functions in irregular patch.\n";
-        return this->shape_grads(p)[i];
+    Tensor<1,dim> rot_shape_grad;
+    switch (valence) {
+        case 4:
+            rot_shape_grad = poly_reg.grads(j,p);
+            break;
+        case 2:
+            rot_shape_grad = poly_one_end.grads(j,p);
+            break;
+        case 1:
+            rot_shape_grad = poly_two_ends.grads(j,p);
+        default:
+            std::cout << "\n warning: inefficiently compute shape_grad in irregular patch.\n";
+            rot_shape_grad = this->shape_grads(p)[i];
+            break;
     }
+    Tensor<1,dim> shape_grad;
+    // dN/du = dN/du' du'/du + dN/dv' dv'/du
+    shape_grad[0] = rotated_jacobian[0][0]*rot_shape_grad[0] + rotated_jacobian[1][0]*rot_shape_grad[1];
+    // dN/dv = dN/du' du'/dv + dN/dv' dv'/dv
+    shape_grad[1] = rotated_jacobian[0][1]*rot_shape_grad[0] + rotated_jacobian[1][1]*rot_shape_grad[1];
+    return shape_grad;
 }
 
 
@@ -597,21 +609,36 @@ template<int dim, int spacedim>
 Tensor<2,dim> FE_Catmull_Clark<dim, spacedim>::shape_grad_grad (const unsigned int i, const Point< dim > &p_0) const
 {
     Point<dim> p = rotate_around_midpoint(p_0, rotated_angle);
+    Tensor<2,dim> rotated_jacobian;
+    rotated_jacobian[0][0] = std::cos(rotated_angle);   // du'/du
+    rotated_jacobian[0][1] = - std::sin(rotated_angle); // du'/dv
+    rotated_jacobian[1][0] = std::sin(rotated_angle);   // dv'/du
+    rotated_jacobian[1][1] = std::cos(rotated_angle);   // dv'/dv
     unsigned int j = shapes_id_map[i];
-    if (valence == 4){
-        // i in [0,15];
-        return poly_reg.grad_grads(j,p);
-    }else if(valence == 2){
-        // i in [0,11];
-        return poly_one_end.grad_grads(j,p);
-    }else if (valence == 1){
-        // i in [0,8];
-        return poly_two_ends.grad_grads(j,p);
-    }else{
-        // i in [0, 2*valence + 7];
-        std::cout << "\n warning: inefficiently compute shape functions in irregular patch.\n";
-        return this->shape_grad_grads(p)[i];
+    Tensor<2,dim> rot_shape_grad_grad;
+    switch (valence) {
+        case 4:
+            rot_shape_grad_grad = poly_reg.grad_grads(j,p);
+            break;
+        case 2:
+            rot_shape_grad_grad = poly_one_end.grad_grads(j,p);
+            break;
+        case 1:
+            rot_shape_grad_grad = poly_two_ends.grad_grads(j,p);
+        default:
+            std::cout << "\n warning: inefficiently compute shape_grad_grad in irregular patch.\n";
+            rot_shape_grad_grad = this->shape_grad_grads(p)[i];
+            break;
     }
+    Tensor<2,dim> shape_grad_grad;
+    // d2N/du_idu_j = d2N/du_k'du_l' du_k'/du_i du_l'/du_j + ...(derivative of rotation jacobian = 0)
+    for (unsigned int i = 0; i < dim; ++i)
+        for (unsigned int j = 0; j < dim; ++j)
+            for (unsigned int k = 0; k < dim; ++k)
+                for (unsigned int l = 0; l < dim; ++l)
+                    shape_grad_grad[i][j] += rot_shape_grad_grad[k][l] * rotated_jacobian[k][i] * rotated_jacobian[l][j];
+    
+    return shape_grad_grad;
 }
 
 
@@ -669,28 +696,33 @@ template<int dim, int spacedim>
 std::vector<Tensor<1, dim>> FE_Catmull_Clark<dim, spacedim>::shape_grads (const Point< dim > &p_0) const
 {
     Point<dim> p = rotate_around_midpoint(p_0, rotated_angle);
-    std::vector<Tensor<1, dim>> shape_grad_vectors;
+    Tensor<2,dim> rotated_jacobian;
+    rotated_jacobian[0][0] = std::cos(rotated_angle);   // du'/du
+    rotated_jacobian[0][1] = - std::sin(rotated_angle); // du'/dv
+    rotated_jacobian[1][0] = std::sin(rotated_angle);   // dv'/du
+    rotated_jacobian[1][1] = std::cos(rotated_angle);   // dv'/dv
+    std::vector<Tensor<1, dim>> rot_shape_grad_vectors;
     if (valence == 1) {
-        shape_grad_vectors.resize(9);
+        rot_shape_grad_vectors.resize(9);
         for (unsigned int i = 0; i < 9; ++i) {
             unsigned int j = shapes_id_map[i];
-            shape_grad_vectors[i] = poly_two_ends.grads(j,p);
+            rot_shape_grad_vectors[i] = poly_two_ends.grads(j,p);
         }
-        return shape_grad_vectors;
+//        return shape_grad_vectors;
     }else{
-        shape_grad_vectors.resize(2*valence + 8);
+        rot_shape_grad_vectors.resize(2*valence + 8);
         if (valence == 4){
             for (unsigned int i = 0; i < 16; ++i)
             {
                 unsigned int j = shapes_id_map[i];
-                shape_grad_vectors[i] = poly_reg.grads(j,p);
+                rot_shape_grad_vectors[i] = poly_reg.grads(j,p);
             }
         }
         else if(valence == 2){
             for (unsigned int i = 0; i < 12; ++i)
             {
                 unsigned int j = shapes_id_map[i];
-                shape_grad_vectors[i] = poly_one_end.grads(j,p);
+                rot_shape_grad_vectors[i] = poly_one_end.grads(j,p);
             }
         }
         else {
@@ -712,12 +744,19 @@ std::vector<Tensor<1, dim>> FE_Catmull_Clark<dim, spacedim>::shape_grads (const 
             Subd_matrix.Tvmult(grad2,grad2_reg);
             for (unsigned int i = 0; i < 2*valence+8; ++i) {
                 unsigned int j = shapes_id_map[i];
-                shape_grad_vectors[i][0] = grad1[j] * jac;
-                shape_grad_vectors[i][1] = grad2[j] * jac;
+                rot_shape_grad_vectors[i][0] = grad1[j] * jac;
+                rot_shape_grad_vectors[i][1] = grad2[j] * jac;
             }
         }
-        return shape_grad_vectors;
     }
+    std::vector<Tensor<1, dim>> shape_grad_vectors(rot_shape_grad_vectors.size());
+    for (unsigned int i = 0; i < rot_shape_grad_vectors.size(); ++i) {
+        // dN/du = dN/du' du'/du + dN/dv' dv'/du
+        shape_grad_vectors[i][0] = rotated_jacobian[0][0]*rot_shape_grad_vectors[i][0] + rotated_jacobian[1][0]*rot_shape_grad_vectors[i][1];
+        // dN/dv = dN/du' du'/dv + dN/dv' dv'/dv
+        shape_grad_vectors[i][1] = rotated_jacobian[0][1]*rot_shape_grad_vectors[i][0] + rotated_jacobian[1][1]*rot_shape_grad_vectors[i][1];
+    }
+    return shape_grad_vectors;
 }
 
 
@@ -726,27 +765,32 @@ template<int dim, int spacedim>
 std::vector<Tensor<2, dim>> FE_Catmull_Clark<dim, spacedim>::shape_grad_grads (const Point< dim > &p_0) const
 {
     Point<dim> p = rotate_around_midpoint(p_0, rotated_angle);
+    Tensor<2,dim> rotated_jacobian;
+    rotated_jacobian[0][0] = std::cos(rotated_angle);   // du'/du
+    rotated_jacobian[0][1] = - std::sin(rotated_angle); // du'/dv
+    rotated_jacobian[1][0] = std::sin(rotated_angle);   // dv'/du
+    rotated_jacobian[1][1] = std::cos(rotated_angle);   // dv'/dv
+    std::vector<Tensor<2, dim>> rot_shape_grad_grad_vectors;
     if (valence == 1) {
-        std::vector<Tensor<2, dim>> shape_grad_grad_vectors(9);
+        rot_shape_grad_grad_vectors.resize(9);
         for (unsigned int i = 0; i < 9; ++i) {
             unsigned int j = shapes_id_map[i];
-            shape_grad_grad_vectors[i] = poly_two_ends.grad_grads(j,p);
+            rot_shape_grad_grad_vectors[i] = poly_two_ends.grad_grads(j,p);
         }
-        return shape_grad_grad_vectors;
     }else{
-        std::vector<Tensor<2, dim>> shape_grad_grad_vectors(2*valence + 8);
+        rot_shape_grad_grad_vectors.resize(2*valence + 8);
         if (valence == 4){
             for (unsigned int i = 0; i < 16; ++i)
             {
                 unsigned int j = shapes_id_map[i];
-                shape_grad_grad_vectors[i] = poly_reg.grad_grads(j,p);
+                rot_shape_grad_grad_vectors[i] = poly_reg.grad_grads(j,p);
             }
         }
         else if(valence == 2){
             for (unsigned int i = 0; i < 12; ++i)
             {
                 unsigned int j = shapes_id_map[i];
-                shape_grad_grad_vectors[i] = poly_one_end.grad_grads(j,p);
+                rot_shape_grad_grad_vectors[i] = poly_one_end.grad_grads(j,p);
             }
         }
         else {
@@ -776,14 +820,22 @@ std::vector<Tensor<2, dim>> FE_Catmull_Clark<dim, spacedim>::shape_grad_grads (c
             Subd_matrix.Tvmult(grad22,grad22_reg);
             for (unsigned int i = 0; i < 2*valence+8; ++i) {
                 unsigned int j = shapes_id_map[i];
-                shape_grad_grad_vectors[i][0][0] = grad11[j] * jac * jac;
-                shape_grad_grad_vectors[i][0][1] = grad12[j] * jac * jac;
-                shape_grad_grad_vectors[i][1][0] = grad21[j] * jac * jac;
-                shape_grad_grad_vectors[i][1][1] = grad22[j] * jac * jac;
+                rot_shape_grad_grad_vectors[i][0][0] = grad11[j] * jac * jac;
+                rot_shape_grad_grad_vectors[i][0][1] = grad12[j] * jac * jac;
+                rot_shape_grad_grad_vectors[i][1][0] = grad21[j] * jac * jac;
+                rot_shape_grad_grad_vectors[i][1][1] = grad22[j] * jac * jac;
             }
         }
-        return shape_grad_grad_vectors;
     }
+    std::vector<Tensor<2, dim>> shape_grad_grad_vectors(rot_shape_grad_grad_vectors.size());
+    for (unsigned int in = 0; in < rot_shape_grad_grad_vectors.size(); ++in) {
+        for (unsigned int i = 0; i < dim; ++i)
+        for (unsigned int j = 0; j < dim; ++j)
+            for (unsigned int k = 0; k < dim; ++k)
+                for (unsigned int l = 0; l < dim; ++l)
+                    shape_grad_grad_vectors[in][i][j] += rot_shape_grad_grad_vectors[in][k][l] * rotated_jacobian[k][i] * rotated_jacobian[l][j];
+    }
+    return shape_grad_grad_vectors;
 }
 
 
@@ -792,6 +844,14 @@ template<int dim, int spacedim>
 void FE_Catmull_Clark<dim, spacedim>::compute(const UpdateFlags update_flags, const Point< dim > &p_0, std::vector<double> &values,  std::vector<Tensor<1,dim>> &grads,std::vector<Tensor<2,dim>> &grad_grads /*, add more if required*/) const
 {
     Point<dim> p = rotate_around_midpoint(p_0, rotated_angle);
+    Tensor<2,dim> rotated_jacobian;
+    rotated_jacobian[0][0] = std::cos(rotated_angle);   // du'/du
+    rotated_jacobian[0][1] = - std::sin(rotated_angle); // du'/dv
+    rotated_jacobian[1][0] = std::sin(rotated_angle);   // dv'/du
+    rotated_jacobian[1][1] = std::cos(rotated_angle);   // dv'/dv
+    std::vector<Tensor<1,dim>> rot_grads;
+    std::vector<Tensor<2,dim>> rot_grad_grads;
+
     if (update_flags & update_values){
         if (valence == 1) {
             values.resize(9);
@@ -836,25 +896,25 @@ void FE_Catmull_Clark<dim, spacedim>::compute(const UpdateFlags update_flags, co
     }
     if (update_flags & update_gradients){
         if (valence == 1) {
-            grads.resize(9);
+            rot_grads.resize(9);
             for (unsigned int i = 0; i < 9; ++i) {
                 unsigned int j = shapes_id_map[i];
-                grads[i] = poly_two_ends.grads(j,p);
+                rot_grads[i] = poly_two_ends.grads(j,p);
             }
         }else{
-            grads.resize(2*valence + 8);
+            rot_grads.resize(2*valence + 8);
             if (valence == 4){
                 for (unsigned int i = 0; i < 16; ++i)
                 {
                     unsigned int j = shapes_id_map[i];
-                    grads[i] = poly_reg.grads(j,p);
+                    rot_grads[i] = poly_reg.grads(j,p);
                 }
             }
             else if(valence == 2){
                 for (unsigned int i = 0; i < 12; ++i)
                 {
                     unsigned int j = shapes_id_map[i];
-                    grads[i] = poly_one_end.grads(j,p);
+                    rot_grads[i] = poly_one_end.grads(j,p);
                 }
             }
             else {
@@ -875,33 +935,41 @@ void FE_Catmull_Clark<dim, spacedim>::compute(const UpdateFlags update_flags, co
                 Subd_matrix.Tvmult(grad2,grad2_reg);
                 for (unsigned int i = 0; i < 2*valence+8; ++i) {
                     unsigned int j = shapes_id_map[i];
-                    grads[i][0] = grad1[j] * jac;
-                    grads[i][1] = grad2[j] * jac;
+                    rot_grads[i][0] = grad1[j] * jac;
+                    rot_grads[i][1] = grad2[j] * jac;
+                }
+            }
+        }
+        grads.resize(rot_grads.size());
+        for (unsigned int in = 0; in < values.size(); ++in) {
+            for (unsigned int i = 0; i < dim; ++i){
+                for (unsigned int k = 0; k < dim; ++k){
+                    grads[in][i] += rot_grads[in][k] * rotated_jacobian[k][i];
                 }
             }
         }
     }
     if (update_flags & update_hessians){
         if (valence == 1) {
-            grad_grads.resize(9);
+            rot_grad_grads.resize(9);
             for (unsigned int i = 0; i < 9; ++i) {
                 unsigned int j = shapes_id_map[i];
-                grad_grads[i] = poly_two_ends.grad_grads(j,p);
+                rot_grad_grads[i] = poly_two_ends.grad_grads(j,p);
             }
         }else{
-            grad_grads.resize(2*valence + 8);
+            rot_grad_grads.resize(2*valence + 8);
             if (valence == 4){
                 for (unsigned int i = 0; i < 16; ++i)
                 {
                     unsigned int j = shapes_id_map[i];
-                    grad_grads[i] = poly_reg.grad_grads(j,p);
+                    rot_grad_grads[i] = poly_reg.grad_grads(j,p);
                 }
             }
             else if(valence == 2){
                 for (unsigned int i = 0; i < 12; ++i)
                 {
                     unsigned int j = shapes_id_map[i];
-                    grad_grads[i] = poly_one_end.grad_grads(j,p);
+                    rot_grad_grads[i] = poly_one_end.grad_grads(j,p);
                 }
             }
             else {
@@ -927,10 +995,23 @@ void FE_Catmull_Clark<dim, spacedim>::compute(const UpdateFlags update_flags, co
 
                 for (unsigned int i = 0; i < 2*valence+8; ++i) {
                     unsigned int j = shapes_id_map[i];
-                    grad_grads[i][0][0] = grad_grads11[j] * jac * jac;
-                    grad_grads[i][1][1] = grad_grads22[j] * jac * jac;
-                    grad_grads[i][0][1] = grad_grads12[j] * jac * jac;
-                    grad_grads[i][1][0] = grad_grads12[j] * jac * jac;
+                    rot_grad_grads[i][0][0] = grad_grads11[j] * jac * jac;
+                    rot_grad_grads[i][1][1] = grad_grads22[j] * jac * jac;
+                    rot_grad_grads[i][0][1] = grad_grads12[j] * jac * jac;
+                    rot_grad_grads[i][1][0] = grad_grads12[j] * jac * jac;
+                }
+            }
+        }
+        grad_grads.resize(rot_grad_grads.size());
+        for (unsigned int in = 0; in < values.size(); ++in) {
+            for (unsigned int i = 0; i < dim; ++i){
+                for (unsigned int k = 0; k < dim; ++k){
+                    grads[in][i] += rot_grads[in][k] * rotated_jacobian[k][i];
+                    for (unsigned int j = 0; j < dim; ++j){
+                        for (unsigned int l = 0; l < dim; ++l){
+                            grad_grads[in][i][j] += rot_grad_grads[in][k][l] * rotated_jacobian[k][i] * rotated_jacobian[l][j];
+                        }
+                    }
                 }
             }
         }
@@ -1019,7 +1100,7 @@ get_data(
         data.shape_derivatives.reinit(this->dofs_per_cell, n_q_points);;
     
     if (data.update_each & update_hessians)
-    data.shape_hessian.reinit(this->dofs_per_cell, n_q_points);
+        data.shape_hessian.reinit(this->dofs_per_cell, n_q_points);
 
     for (unsigned int iq = 0; iq < n_q_points; ++iq) {
         Point<dim> p = qpts[iq];
