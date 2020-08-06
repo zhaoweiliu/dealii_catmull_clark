@@ -78,7 +78,7 @@ CatmullClark<dim, spacedim>::get_adaptive_quadrature(int L, Quadrature<2> qpts) 
 
 
 template <int dim, int spacedim>
-const Quadrature<dim> CatmullClark<dim, spacedim>::edge_cell_boundary_quadrature() const
+const Quadrature<dim> CatmullClark<dim, spacedim>::edge_cell_boundary_quadrature(const unsigned int v0_id) const
 {
   std::vector<Point<dim>>     qpts_2d;
   std::vector<double>         wts_2d;
@@ -87,7 +87,22 @@ const Quadrature<dim> CatmullClark<dim, spacedim>::edge_cell_boundary_quadrature
   std::vector<double>         gauss_wts = quadrature_1d.get_weights();
   for (unsigned int iq = 0; iq < gauss_pts.size(); ++iq)
     {
-      qpts_2d.push_back({gauss_pts[iq][0], 0});
+        switch (v0_id) {
+            case 0:
+                qpts_2d.push_back({gauss_pts[iq][0], 0.});
+                break;
+            case 1:
+                qpts_2d.push_back({1.0, gauss_pts[iq][0]});
+                break;
+            case 2:
+                qpts_2d.push_back({0., gauss_pts[iq][0]});
+            break;
+            case 3:
+                qpts_2d.push_back({gauss_pts[iq][0], 1.});
+            break;
+            default:
+                break;
+        }
       wts_2d.push_back(gauss_wts[iq]);
     }
   return {qpts_2d, wts_2d};
@@ -95,7 +110,7 @@ const Quadrature<dim> CatmullClark<dim, spacedim>::edge_cell_boundary_quadrature
 
 
 template <int dim, int spacedim>
-const Quadrature<dim> CatmullClark<dim, spacedim>::corner_cell_boundary_quadrature() const
+const Quadrature<dim> CatmullClark<dim, spacedim>::corner_cell_boundary_quadrature(const unsigned int v0_id) const
 {
   std::vector<Point<dim>>     qpts_2d;
   std::vector<double>         wts_2d;
@@ -104,10 +119,28 @@ const Quadrature<dim> CatmullClark<dim, spacedim>::corner_cell_boundary_quadratu
   std::vector<double>         gauss_wts = quadrature_1d.get_weights();
   for (unsigned int iq = 0; iq < gauss_pts.size(); ++iq)
     {
-      qpts_2d.push_back({gauss_pts[iq][0], 0});
-      qpts_2d.push_back({0, gauss_pts[iq][0]});
-      wts_2d.push_back(gauss_wts[iq]);
-      wts_2d.push_back(gauss_wts[iq]);
+        switch (v0_id) {
+            case 0:
+                qpts_2d.push_back({gauss_pts[iq][0], 0.});
+                qpts_2d.push_back({0., gauss_pts[iq][0]});
+                break;
+            case 1:
+                qpts_2d.push_back({gauss_pts[iq][0], 0.});
+                qpts_2d.push_back({1., gauss_pts[iq][0]});
+                break;
+            case 2:
+                qpts_2d.push_back({gauss_pts[iq][0], 1.});
+                qpts_2d.push_back({0., gauss_pts[iq][0]});
+                break;
+            case 3:
+                qpts_2d.push_back({gauss_pts[iq][0], 1.});
+                qpts_2d.push_back({1., gauss_pts[iq][0]});
+                break;
+            default:
+                break;
+        }
+        wts_2d.push_back(gauss_wts[iq]);
+        wts_2d.push_back(gauss_wts[iq]);
     }
   return {qpts_2d, wts_2d};
 }
@@ -115,7 +148,7 @@ const Quadrature<dim> CatmullClark<dim, spacedim>::corner_cell_boundary_quadratu
 template <int dim, int spacedim>
 const Quadrature<dim> CatmullClark<dim, spacedim>::empty_boundary_quadrature() const
 {
-  return Quadrature<dim>({Point<dim>()});
+    return Quadrature<dim>({Point<dim>()},{0});
 }
 
 
@@ -127,9 +160,8 @@ void CatmullClark<dim, spacedim>::set_hp_objects(
 {
   n_element = multiplicity;
   cell_patch_vector = cell_patches(dof_handler);
-  new_order_for_cells(dof_handler, n_element);
+  new_order_for_cells(dof_handler);
   set_FECollection(dof_handler, n_element);
-  
   // dof_handler.distribute_dofs(fe_collection);
   // new_dofs_for_cells(dof_handler, n_element);
   // set_MappingCollection(dof_handler, vec_values, n_element);
@@ -249,7 +281,12 @@ void CatmullClark<dim, spacedim>::set_FECollection(
           if (exsit == false)
             {
               FE_Catmull_Clark<dim, spacedim> fe(valence, verts_id, this->reference_ptr());
-              fe_collection.push_back(FESystem<dim, spacedim>(fe, n_element));
+              if (n_element == 1)
+                {fe_collection.push_back(fe);}
+              else
+                {
+                 fe_collection.push_back(FESystem<dim, spacedim>(fe, n_element));
+                }
               if (valence == 1 || valence == 2 || valence == 4)
                 {
                   q_collection.push_back(qpts);
@@ -263,11 +300,11 @@ void CatmullClark<dim, spacedim>::set_FECollection(
                 {
                   case (1):
                     q_boundary_collection.push_back(
-                      corner_cell_boundary_quadrature());
+                      corner_cell_boundary_quadrature(verts_id[0]));
                     break;
                   case (2):
                     q_boundary_collection.push_back(
-                      edge_cell_boundary_quadrature());
+                      edge_cell_boundary_quadrature(verts_id[0]));
                     break;
                   default:
                     q_boundary_collection.push_back(
@@ -287,7 +324,11 @@ void CatmullClark<dim, spacedim>::set_FECollection(
                       std::vector<std::pair<unsigned int, unsigned int>>>(
               valence, {{verts_id[0], i_fe}}));
           FE_Catmull_Clark<dim, spacedim> fe(valence, verts_id, this->reference_ptr());
+          if (n_element == 1)
+            {fe_collection.push_back(fe);}
+          else{
           fe_collection.push_back(FESystem<dim, spacedim>(fe, n_element));
+            }
           if (valence == 1 || valence == 2 || valence == 4)
             {
               q_collection.push_back(qpts);
@@ -300,11 +341,11 @@ void CatmullClark<dim, spacedim>::set_FECollection(
             {
               case (1):
                 q_boundary_collection.push_back(
-                  corner_cell_boundary_quadrature());
+                  corner_cell_boundary_quadrature(verts_id[0]));
                 break;
               case (2):
                 q_boundary_collection.push_back(
-                  edge_cell_boundary_quadrature());
+                  edge_cell_boundary_quadrature(verts_id[0]));
                 break;
               default:
                 q_boundary_collection.push_back(empty_boundary_quadrature());
@@ -327,8 +368,9 @@ void CatmullClark<dim, spacedim>::set_MappingCollection(
 {
   const ComponentMask mask(spacedim, true);
 
-  vec_values.reinit(dof_handler.n_dofs());
   const auto &vertices = dof_handler.get_triangulation().get_vertices();
+  vec_values.reinit(vertices.size() * spacedim);
+
   for (auto cell = dof_handler.begin_active(); cell != dof_handler.end();
      ++cell)
   {
@@ -345,11 +387,9 @@ void CatmullClark<dim, spacedim>::set_MappingCollection(
       }
   }
 
-  AssertDimension(dof_handler.n_dofs(), indices_mapping.size() * n_element);
-
   for (unsigned int v_id = 0; v_id < indices_mapping.size(); ++v_id)
     {
-      for (unsigned int j = 0; j < n_element; ++j)
+      for (unsigned int j = 0; j < spacedim; ++j)
         {
           unsigned int first_dof_id    = indices_mapping.find(v_id)->second;
           vec_values[first_dof_id + j] = vertices[v_id][j];
@@ -866,8 +906,7 @@ CatmullClark<dim, spacedim>::ordering_cells_in_patch(
 
 template <int dim, int spacedim>
 void CatmullClark<dim, spacedim>::new_order_for_cells(
-  hp::DoFHandler<dim, spacedim> &dof_handler,
-  unsigned int                   n_element)
+  hp::DoFHandler<dim, spacedim> &dof_handler)
 {
   std::vector<std::vector<unsigned int>> dof_indices_order_vector(
     dof_handler.get_triangulation().n_active_cells());
@@ -983,7 +1022,7 @@ const std::array<unsigned int, 4> CatmullClark<dim, spacedim>::vertex_face_loop(
 
 
 template <int dim, int spacedim>
-const unsigned int CatmullClark<dim, spacedim>::opposite_vertex_dofs(unsigned int i) const
+unsigned int CatmullClark<dim, spacedim>::opposite_vertex_dofs(unsigned int i) const
 {
   switch (i)
     {
@@ -1164,27 +1203,43 @@ CatmullClark<dim, spacedim>::verts_id_on_boundary(
     }
 
   switch (m[0])
-    {
+  {
+//      case 0:
+//          switch (m[1])
+//          {
+//              case 3:
+//                  return {2, 3, 1, 0};
+//              case 2:
+//                  return {0, 2, 3, 1};
+//          }
+//      case 1:
+//          switch (m[1])
+//          {
+//              case 3:
+//                  return {3, 1, 0, 2};
+//              case 2:
+//                  return {1, 0, 2, 3};
+//          }
       case 0:
-        switch (m[1])
+          switch (m[1])
           {
-            case 3:
-              return {2, 3, 1, 0};
-            case 2:
-              return {0, 2, 3, 1};
+              case 3:
+                  return {2, 0, 1, 3};
+              case 2:
+                  return {0, 1, 3, 2};
           }
       case 1:
-        switch (m[1])
+          switch (m[1])
           {
-            case 3:
-              return {3, 1, 0, 2};
-            case 2:
-              return {1, 0, 2, 3};
+              case 3:
+                  return {3, 2, 0, 1};
+              case 2:
+                  return {1, 3, 2, 0};
           }
-
+          
       default:
-        throw std::runtime_error("faces_id_not_valid.");
-        break;
+          throw std::runtime_error("faces_id_not_valid.");
+          break;
     }
 }
 
@@ -1215,17 +1270,34 @@ template <int dim, int spacedim>
 std::array<unsigned int, 4>
 const CatmullClark<dim, spacedim>::rotated_vertices(const unsigned int local_face_id) const
 {
+    /*    -> u
+     *   |     2
+     * v V  0-----1
+     *      |     |
+     *    0 |     | 1
+     *      |     |
+     *      2-----3
+     *         3
+     */
   switch (local_face_id)
     {
-      case 0:
-        return {0, 2, 3, 1};
-      case 1:
-        return {3, 1, 0, 2};
-      case 2:
-        return {1, 0, 2, 3};
-      case 3:
-        return {2, 3, 1, 0};
-      default:
+//      case 0:
+//        return {0, 2, 3, 1};
+//      case 1:
+//        return {3, 1, 0, 2};
+//      case 2:
+//        return {1, 0, 2, 3};
+//      case 3:
+//        return {2, 3, 1, 0};
+        case 0:
+            return {2, 0, 1, 3};
+        case 1:
+            return {1, 3, 2, 0};
+        case 2:
+            return {0, 1, 3, 2};
+        case 3:
+            return {3, 2, 0, 1};
+        default:
         throw std::runtime_error("face_id_not_valid.");
         break;
     }
@@ -1278,9 +1350,7 @@ CatmullClark<dim, spacedim>::get_non_local_dof_indices(
   std::vector<types::global_dof_index>
     non_local_dof_indices(accessor.get_fe().n_non_local_dofs_per_cell(), 0);
   accessor.get_dof_indices(cell_dof_indices);
-    
-  unsigned int n_element = spacedim;
-        
+            
   switch (cells.size())
     {
       case 4:
@@ -1334,7 +1404,6 @@ CatmullClark<dim, spacedim>::get_non_local_dof_indices(
                   edges_on_boundary.push_back(ie);
                 }
             }
-          // auto verts_id = verts_id_on_boundary(edges_on_boundary);
           for (unsigned int iel = 0; iel < n_element; ++iel)
             {
               int face_local_id;
@@ -1343,18 +1412,19 @@ CatmullClark<dim, spacedim>::get_non_local_dof_indices(
               cell_dof_indices.resize(cells[1]->get_fe().dofs_per_cell);
               cells[1]->get_dof_indices(cell_dof_indices);
               non_local_dof_indices[4 * n_element + iel] =
-                cell_dof_indices[rotated_iv_1[2] * n_element + iel];
-              non_local_dof_indices[3 * n_element + iel] =
                 cell_dof_indices[rotated_iv_1[3] * n_element + iel];
+              non_local_dof_indices[3 * n_element + iel] =
+                cell_dof_indices[rotated_iv_1[2] * n_element + iel];
 
               face_local_id     = common_face_local_id(cells[0], cells[2]);
               auto rotated_iv_2 = rotated_vertices(face_local_id);
               cell_dof_indices.resize(cells[2]->get_fe().dofs_per_cell);
               cells[2]->get_dof_indices(cell_dof_indices);
               non_local_dof_indices[1 * n_element + iel] =
-                cell_dof_indices[rotated_iv_2[2] * n_element + iel];
-              non_local_dof_indices[0 * n_element + iel] =
                 cell_dof_indices[rotated_iv_2[3] * n_element + iel];
+              non_local_dof_indices[0 * n_element + iel] =
+                cell_dof_indices[rotated_iv_2[2] * n_element + iel];
+                
               non_local_dof_indices[2 * n_element + iel] =
                 get_neighbour_dofs(cells[0],
                                    cells[3],
@@ -1412,9 +1482,9 @@ CatmullClark<dim, spacedim>::get_non_local_dof_indices(
           cells[1]->get_dof_indices(cell_dof_indices);
           for (unsigned int iel = 0; iel < n_element; ++iel)
             {
-              non_local_dof_indices[4 * n_element + iel] =
+              non_local_dof_indices[6 * n_element + iel] =
                 cell_dof_indices[rotated_iv_1[2] * n_element + iel];
-              non_local_dof_indices[3 * n_element + iel] =
+              non_local_dof_indices[5 * n_element + iel] =
                 cell_dof_indices[rotated_iv_1[3] * n_element + iel];
             }
           face_local_id     = common_face_local_id(cells[0], cells[2]);
@@ -1434,16 +1504,16 @@ CatmullClark<dim, spacedim>::get_non_local_dof_indices(
           cells[3]->get_dof_indices(cell_dof_indices);
           for (unsigned int iel = 0; iel < n_element; ++iel)
             {
-              non_local_dof_indices[6 * n_element + iel] =
+              non_local_dof_indices[4 * n_element + iel] =
                 cell_dof_indices[rotated_iv_3[2] * n_element + iel];
-              non_local_dof_indices[5 * n_element + iel] =
+              non_local_dof_indices[3 * n_element + iel] =
                 cell_dof_indices[rotated_iv_3[3] * n_element + iel];
 
-              non_local_dof_indices[2 * n_element + iel] =
+              non_local_dof_indices[7 * n_element + iel] =
                 get_neighbour_dofs(cells[0],
                                    cells[4],
                                    n_element)[0 * n_element + iel];
-              non_local_dof_indices[7 * n_element + iel] =
+              non_local_dof_indices[2 * n_element + iel] =
                 get_neighbour_dofs(cells[0],
                                    cells[5],
                                    n_element)[0 * n_element + iel];

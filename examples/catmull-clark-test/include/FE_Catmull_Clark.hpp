@@ -181,6 +181,10 @@ private:
 
   // maps ith dof to shape id;
   std::vector<unsigned int> shapes_id_map;
+      
+  double rotated_angle;
+    
+  Point<dim> rotate_around_midpoint(const Point<dim> p, const double angle) const;
 
   const typename polynomials_Catmull_Clark<dim>::regular poly_reg;
 

@@ -273,6 +273,23 @@ FE_Catmull_Clark<dim,spacedim>::FE_Catmull_Clark(const unsigned int val, const s
 {
     non_local_dh = cc_object;
     shapes_id_map.resize((valence == 1? 9:2*val+8));
+    rotated_angle = 0;
+    switch (verts_id[0]) {
+        case 0:
+            rotated_angle = 0;
+            break;
+        case 1:
+            rotated_angle =  1.5 * numbers::PI;
+            break;
+        case 2:
+            rotated_angle =  0.5 * numbers::PI;
+            break;
+        case 3:
+            rotated_angle =  1 * numbers::PI;
+            break;
+        default:
+            break;
+    }
     if (val == 1){
         /*
                6-----7-----8
@@ -282,29 +299,18 @@ FE_Catmull_Clark<dim,spacedim>::FE_Catmull_Clark(const unsigned int val, const s
                3-----4-----5
                |     |     |
                |     |     |
-               |     |     |
-               0-----1-----2     */
-        
+       v ^     |     |     |
+         |     0-----1-----2
+         -> u */
         shapes_id_map[verts_id[0]] = 0;
-        shapes_id_map[verts_id[1]] = 3;
+        shapes_id_map[verts_id[1]] = 1;
         shapes_id_map[verts_id[2]] = 4;
-        shapes_id_map[verts_id[3]] = 1;
+        shapes_id_map[verts_id[3]] = 3;
         shapes_id_map[4] = 2;
         shapes_id_map[5] = 5;
         shapes_id_map[6] = 8;
         shapes_id_map[7] = 7;
         shapes_id_map[8] = 6;
-        
-        /* -> u j_shape
-          |    0-----1-----2
-       v \/    |     |     |
-               |     |     |
-               |     |     |
-               3-----4-----5
-               |     |     |
-               |     |     |
-               |     |     |
-               6-----7-----8     */
         
         /*
         indices mapping for non-local dofs
@@ -321,7 +327,7 @@ FE_Catmull_Clark<dim,spacedim>::FE_Catmull_Clark(const unsigned int val, const s
         
     }
     else if (val == 2){
-        /*
+        /* -> u
          8-----9----10----11
          |     |     |     |
          |     |     |     |
@@ -329,32 +335,8 @@ FE_Catmull_Clark<dim,spacedim>::FE_Catmull_Clark(const unsigned int val, const s
          4-----5-----6-----7
          |     |     |     |
          |     |     |     |
-         |     |     |     |
-         0-----1-----2-----3     */
-        
-        shapes_id_map[verts_id[0]] = 2;
-        shapes_id_map[verts_id[1]] = 1;
-        shapes_id_map[verts_id[2]] = 5;
-        shapes_id_map[verts_id[3]] = 6;
-        shapes_id_map[4] = 10;
-        shapes_id_map[5] = 9;
-        shapes_id_map[6] = 8;
-        shapes_id_map[7] = 4;
-        shapes_id_map[8] = 0;
-        shapes_id_map[9] = 3;
-        shapes_id_map[10] = 7;
-        shapes_id_map[11] = 11;
-        
-        /* -> u
-         0-----1-----2-----3 v|
-         |     |     |     |  \/
-         |     |     |     |
-         |     |     |     |
-         4-----5-----6-----7
-         |     |     |     |
-         |     |     |     |
-         |     |     |     |
-         8-----9-----10----11     */
+         |     |     |     |   ^ v
+         0-----1-----2-----3   |  */
         
         /*
         7(11)----0(4)-----1(5)------2(6)
@@ -366,6 +348,43 @@ FE_Catmull_Clark<dim,spacedim>::FE_Catmull_Clark(const unsigned int val, const s
         |        |         |        |
         |        |         |        |
         5(9)-----?---------?--------4(8)     */
+        
+        shapes_id_map[verts_id[0]] = 1;
+        shapes_id_map[verts_id[1]] = 2;
+        shapes_id_map[verts_id[2]] = 6;
+        shapes_id_map[verts_id[3]] = 5;
+        shapes_id_map[4] = 9;
+        shapes_id_map[5] = 10;
+        shapes_id_map[6] = 11;
+        shapes_id_map[7] = 7;
+        shapes_id_map[8] = 3;
+        shapes_id_map[9] = 0;
+        shapes_id_map[10] = 4;
+        shapes_id_map[11] = 8;
+        
+        /*
+        7(11)----0(4)-----1(5)------2(6)
+        |        |         |        |
+        |        |         |        |
+        |        |         |        |
+        6(10)----?---------?--------3(7)
+        |        |         |        |
+        |        |         |        |
+        |        |         |        |
+        5(9)-----?---------?--------4(8)     */
+        
+//        shapes_id_map[verts_id[0]] = 2;
+//        shapes_id_map[verts_id[1]] = 1;
+//        shapes_id_map[verts_id[2]] = 5;
+//        shapes_id_map[verts_id[3]] = 6;
+//        shapes_id_map[4] = 10;
+//        shapes_id_map[5] = 9;
+//        shapes_id_map[6] = 8;
+//        shapes_id_map[7] = 4;
+//        shapes_id_map[8] = 0;
+//        shapes_id_map[9] = 3;
+//        shapes_id_map[10] = 7;
+//        shapes_id_map[11] = 11;
     }
     else if (val == 4)
     {
@@ -528,8 +547,9 @@ FE_Catmull_Clark<dim, spacedim>::requires_update_flags(const UpdateFlags flags) 
 
 
 template<int dim, int spacedim>
-double FE_Catmull_Clark<dim, spacedim>::shape_value (const unsigned int i, const Point< dim > &p) const
+double FE_Catmull_Clark<dim, spacedim>::shape_value (const unsigned int i, const Point< dim > &p_0) const
 {
+    Point<dim> p = rotate_around_midpoint(p_0, rotated_angle);
     unsigned int j = shapes_id_map[i];
     if (valence == 4){
         // i in [0,15];
@@ -551,8 +571,9 @@ double FE_Catmull_Clark<dim, spacedim>::shape_value (const unsigned int i, const
 
 
 template<int dim, int spacedim>
-Tensor<1,dim> FE_Catmull_Clark<dim, spacedim>::shape_grad (const unsigned int i, const Point< dim > &p) const
+Tensor<1,dim> FE_Catmull_Clark<dim, spacedim>::shape_grad (const unsigned int i, const Point< dim > &p_0) const
 {
+    Point<dim> p = rotate_around_midpoint(p_0, rotated_angle);
     unsigned int j = shapes_id_map[i];
     if (valence == 4){
         // i in [0,15];
@@ -573,8 +594,9 @@ Tensor<1,dim> FE_Catmull_Clark<dim, spacedim>::shape_grad (const unsigned int i,
 
 
 template<int dim, int spacedim>
-Tensor<2,dim> FE_Catmull_Clark<dim, spacedim>::shape_grad_grad (const unsigned int i, const Point< dim > &p) const
+Tensor<2,dim> FE_Catmull_Clark<dim, spacedim>::shape_grad_grad (const unsigned int i, const Point< dim > &p_0) const
 {
+    Point<dim> p = rotate_around_midpoint(p_0, rotated_angle);
     unsigned int j = shapes_id_map[i];
     if (valence == 4){
         // i in [0,15];
@@ -595,8 +617,9 @@ Tensor<2,dim> FE_Catmull_Clark<dim, spacedim>::shape_grad_grad (const unsigned i
 
 
 template<int dim, int spacedim>
-std::vector<double> FE_Catmull_Clark<dim, spacedim>::shape_values (const Point< dim > &p) const
+std::vector<double> FE_Catmull_Clark<dim, spacedim>::shape_values (const Point< dim > &p_0) const
 {
+    Point<dim> p = rotate_around_midpoint(p_0, rotated_angle);
     if (valence == 1) {
         std::vector<double> shape_vectors(9);
         for (unsigned int i = 0; i < 9; ++i) {
@@ -643,8 +666,9 @@ std::vector<double> FE_Catmull_Clark<dim, spacedim>::shape_values (const Point< 
 
 
 template<int dim, int spacedim>
-std::vector<Tensor<1, dim>> FE_Catmull_Clark<dim, spacedim>::shape_grads (const Point< dim > &p) const
+std::vector<Tensor<1, dim>> FE_Catmull_Clark<dim, spacedim>::shape_grads (const Point< dim > &p_0) const
 {
+    Point<dim> p = rotate_around_midpoint(p_0, rotated_angle);
     std::vector<Tensor<1, dim>> shape_grad_vectors;
     if (valence == 1) {
         shape_grad_vectors.resize(9);
@@ -699,8 +723,9 @@ std::vector<Tensor<1, dim>> FE_Catmull_Clark<dim, spacedim>::shape_grads (const 
 
 
 template<int dim, int spacedim>
-std::vector<Tensor<2, dim>> FE_Catmull_Clark<dim, spacedim>::shape_grad_grads (const Point< dim > &p) const
+std::vector<Tensor<2, dim>> FE_Catmull_Clark<dim, spacedim>::shape_grad_grads (const Point< dim > &p_0) const
 {
+    Point<dim> p = rotate_around_midpoint(p_0, rotated_angle);
     if (valence == 1) {
         std::vector<Tensor<2, dim>> shape_grad_grad_vectors(9);
         for (unsigned int i = 0; i < 9; ++i) {
@@ -764,7 +789,9 @@ std::vector<Tensor<2, dim>> FE_Catmull_Clark<dim, spacedim>::shape_grad_grads (c
 
 
 template<int dim, int spacedim>
-void FE_Catmull_Clark<dim, spacedim>::compute(const UpdateFlags update_flags, const Point< dim > &p, std::vector<double> &values,  std::vector<Tensor<1,dim>> &grads,std::vector<Tensor<2,dim>> &grad_grads /*, add more if required*/) const{
+void FE_Catmull_Clark<dim, spacedim>::compute(const UpdateFlags update_flags, const Point< dim > &p_0, std::vector<double> &values,  std::vector<Tensor<1,dim>> &grads,std::vector<Tensor<2,dim>> &grad_grads /*, add more if required*/) const
+{
+    Point<dim> p = rotate_around_midpoint(p_0, rotated_angle);
     if (update_flags & update_values){
         if (valence == 1) {
             values.resize(9);
@@ -1173,8 +1200,16 @@ template <int dim, int spacedim>
      }
  }
 
+template <int dim, int spacedim>
+Point<dim> FE_Catmull_Clark<dim,spacedim>::rotate_around_midpoint(const Point<dim> p, const double angle) const
+{
+//    Assert( (p[0] >= 0 && p[0] <= 1) && (p[1] >= 0 && p[1] <= 1) , ExcMessage("Point must be in the parametric space [0,1]^d.") );
+    Point<dim> rp;
+    rp[0] = std::cos(angle) * (p[0] - 0.5) - std::sin(angle) * (p[1] - 0.5) + 0.5;
+    rp[1] = std::sin(angle) * (p[0] - 0.5) + std::cos(angle) * (p[1] - 0.5) + 0.5;
+    return rp;
+}
 
-
-template class FE_Catmull_Clark<2,3>;
+template class FE_Catmull_Clark <2, 3>;
 
 DEAL_II_NAMESPACE_CLOSE

@@ -49,17 +49,17 @@ class CatmullClark : public NonLocalDoFHandler<dim, spacedim>
 {
 public:
   CatmullClark() = default;
-
+    
   /**
    * Reinitializing this class to a valid state, reading information from
    * triangulation, to compute patches, and so on
    */
   void set_hp_objects(hp::DoFHandler<dim, spacedim> &dh,
-                      const unsigned int             n_element);
+                      const unsigned int             multiplicity = 1);
 
   void set_MappingCollection(const hp::DoFHandler<dim, spacedim> &dof_handler,
                              Vector<double> &                     vec_values,
-                             const unsigned int                   n_element);
+                             const unsigned int                   multiplicity);
 
   void set_FECollection(hp::DoFHandler<dim, spacedim> &dof_handler,
                         const unsigned int             n_element);
@@ -89,8 +89,7 @@ public:
     return indices_mapping;
   }
 
-  void new_order_for_cells(hp::DoFHandler<dim, spacedim> &dof_handler,
-                          unsigned int                   n_element);
+  void new_order_for_cells(hp::DoFHandler<dim, spacedim> &dof_handler);
 
   virtual std::vector<types::global_dof_index> get_non_local_dof_indices(
     const DoFCellAccessor<dim, spacedim, false> &accessor) const override;
@@ -149,7 +148,7 @@ private:
 
   //    Vector<double> vec_values;
 
-  const unsigned int opposite_vertex_dofs(unsigned int i) const;
+  unsigned int opposite_vertex_dofs(unsigned int i) const;
 
   const std::array<unsigned int, 4>
   vertex_face_loop(const unsigned int local_vertex_id) const;
@@ -184,9 +183,9 @@ private:
 
   const Quadrature<dim> get_adaptive_quadrature(int L, Quadrature<2> qpts) const;
 
-  const Quadrature<dim> edge_cell_boundary_quadrature() const;
+  const Quadrature<dim> edge_cell_boundary_quadrature(const unsigned int v0_id) const;
 
-  const Quadrature<dim> corner_cell_boundary_quadrature() const;
+  const Quadrature<dim> corner_cell_boundary_quadrature(const unsigned int v0_id) const;
 
   const Quadrature<dim> empty_boundary_quadrature() const;
      
