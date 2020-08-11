@@ -20,12 +20,13 @@
 #include <deal.II/fe/mapping.h>
 #include <deal.II/fe/fe_system.h>
 
+#include <deal.II/dofs/dof_accessor.h>
 
 #include "polynomials_CubicBSpline.hpp"
 #include "polynomials_Catmull_Clark.hpp"
+#include "Catmull_Clark_Data.hpp"
 
 DEAL_II_NAMESPACE_OPEN
-
 template <int dim, int spacedim>
 class CatmullClark;
 
@@ -44,7 +45,7 @@ public:
     
     FE_Catmull_Clark(const unsigned int                valence,
                      const std::array<unsigned int, 4> verts_id,
-                     std::shared_ptr<const NonLocalDoFHandler<dim, spacedim>>                    cc_object,
+                     std::shared_ptr<CatmullClark<dim, spacedim>>                    cc_object,
                      const unsigned int                n_components = 1,
                      const bool                        dominate     = false);
 
@@ -136,6 +137,24 @@ public:
     dealii::internal::FEValuesImplementation::FiniteElementRelatedData<dim,
                                                                        spacedim>
       &output_data) const override;
+    
+  virtual std::vector<types::global_dof_index>
+  get_non_local_dof_indices(const DoFCellAccessor<dim, spacedim, false> &accessor) const override
+  {
+      return non_local_dh->non_local_dof_indices(accessor);
+  }
+    
+  virtual std::string
+  get_non_local_id() const override
+  {
+    return "NonLocal Catmull-Clark";
+  }
+    
+  virtual types::global_dof_index
+  n_global_non_local_dofs() const override
+  {
+    return 0;
+  }
 
   virtual bool
   operator==(const FiniteElement<dim, spacedim> &fe) const override;
@@ -166,14 +185,14 @@ public:
 
   };
 
-  virtual std::shared_ptr<const NonLocalDoFHandler<dim, spacedim>>
-  get_non_local_dof_handler() const override
-  {
-    return non_local_dh;
-  }
+//  std::shared_ptr<const CatmullClark<dim, spacedim>>
+//  get_non_local_dof_handler() const
+//  {
+//    return non_local_dh;
+//  }
 
 private:
-  std::shared_ptr<const NonLocalDoFHandler<dim, spacedim>> non_local_dh;
+  std::shared_ptr<CatmullClark<dim, spacedim>> non_local_dh;
 
   const unsigned int valence;
 

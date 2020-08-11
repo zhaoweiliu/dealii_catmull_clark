@@ -9,38 +9,6 @@
 
 DEAL_II_NAMESPACE_OPEN
 
-// void
-// catmull_clark_create_fecollection_and_distribute_dofs(hp::DoFHandler<2, 3>
-// &dof_handler, hp::FECollection<2, 3>& fe_collection, const unsigned int
-// n_element)
-//{
-//    auto catmull_clark = std::make_shared <CatmullClark<2,
-//    3>>(dof_handler,n_element); fe_collection =
-//    catmull_clark->get_FECollection();
-//}
-
-
-
-// void
-//   catmull_clark_create_fe_quadrature_and_mapping_collections_and_distribute_dofs(
-//     hp::DoFHandler<2, 3> &       dof_handler,
-//     hp::FECollection<2, 3> &     fe_collection,
-//     Vector<double> &             vec_values,
-//     hp::MappingCollection<2, 3> &mapping_collection,
-//     hp::QCollection<2> &         q_collection,
-//     hp::QCollection<2> &         boundary_q_collection,
-//     const unsigned int           n_element)
-// {
-//   auto catmull_clark =
-//     std::make_shared<CatmullClark<2, 3>>(dof_handler, vec_values, n_element);
-//   fe_collection         = catmull_clark->get_FECollection();
-//   mapping_collection    = catmull_clark->get_MappingCollection();
-//   q_collection          = catmull_clark->get_QCollection();
-//   boundary_q_collection = catmull_clark->get_boundary_QCollection();
-// }
-
-
-
 template <int dim, int spacedim>
 const Quadrature<dim>
 CatmullClark<dim, spacedim>::get_adaptive_quadrature(int L, Quadrature<2> qpts) const
@@ -162,9 +130,6 @@ void CatmullClark<dim, spacedim>::set_hp_objects(
   cell_patch_vector = cell_patches(dof_handler);
   new_order_for_cells(dof_handler);
   set_FECollection(dof_handler, n_element);
-  // dof_handler.distribute_dofs(fe_collection);
-  // new_dofs_for_cells(dof_handler, n_element);
-  // set_MappingCollection(dof_handler, vec_values, n_element);
 }
 
 
@@ -407,7 +372,6 @@ void CatmullClark<dim, spacedim>::set_MappingCollection(
           mapping_collection.push_back(mapping);
         }
     }
-  //  return mapping_collection;
 }
 
 
@@ -1337,7 +1301,7 @@ const CatmullClark<dim, spacedim>::get_diagonal_dof_id_to_ex(
 
 template <int dim, int spacedim>
 std::vector<types::global_dof_index>
-CatmullClark<dim, spacedim>::get_non_local_dof_indices(
+CatmullClark<dim, spacedim>::non_local_dof_indices(
   const DoFCellAccessor<dim, spacedim, false> &accessor) const
 {
   std::map<unsigned int,

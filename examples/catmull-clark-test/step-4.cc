@@ -115,7 +115,7 @@ template <int dim, int spacedim>
 void Step4<dim, spacedim>::make_grid()
 {
     GridGenerator::hyper_cube(triangulation, -1, 1);
-    triangulation.refine_global(5);
+    triangulation.refine_global(4);
     std::cout << "   Number of active cells: " << triangulation.n_active_cells()
     << std::endl
     << "   Total number of cells: " << triangulation.n_cells()
@@ -154,18 +154,6 @@ void Step4<dim, spacedim>::assemble_system()
         std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
         cell->get_dof_indices(local_dof_indices);
         
-        std::cout << "Cell " << cell->active_cell_index() << " face ";
-        for (unsigned int iface = 0; iface < 4; ++iface){
-            if (cell->at_boundary(iface)) {
-                std::cout << iface << " ";
-            }
-        }
-        std::cout << "at boundary.\n";
-        std::cout << "dofs for cell are ";
-        for (unsigned int id = 0; id < dofs_per_cell; ++id){
-            std::cout << local_dof_indices[id]<<" ";
-        }
-        std::cout << std::endl;
         hp_fe_values.reinit(cell);
         const FEValues<dim, spacedim> &fe_values =
         hp_fe_values.get_present_fe_values();
@@ -180,9 +168,6 @@ void Step4<dim, spacedim>::assemble_system()
                     (fe_values.shape_grad(i, q_index) * // grad phi_i(x_q)
                      fe_values.shape_grad(j, q_index) * // grad phi_j(x_q)
                      fe_values.JxW(q_index));           // dx
-//                    (fe_values.shape_value(i, q_index) * // phi_i(x_q)
-//                     fe_values.shape_value(j, q_index) * // phi_j(x_q)
-//                     fe_values.JxW(q_index));
                 const auto x_q = fe_values.quadrature_point(q_index);
                 cell_rhs(i) += (fe_values.shape_value(i, q_index) * // phi_i(x_q)
                                 right_hand_side.value(x_q) *        // f(x_q)
@@ -263,9 +248,11 @@ void Step4<dim, spacedim>::assemble_boundary_system()
         }
     }
 }
+
 template <int dim, int spacedim>
 void Step4<dim, spacedim>::solve()
 {
+    std::cout <<"Apply boundary conditions using Penalty method with a factor = "<< penalty_factor <<std::endl;
     system_matrix.add(penalty_factor,boundary_mass_matrix);
     system_rhs.add(penalty_factor,boundary_value_rhs);
     SolverControl            solver_control(3000, 1e-12);
@@ -274,37 +261,10 @@ void Step4<dim, spacedim>::solve()
     std::cout << "   " << solver_control.last_step()
     << " CG iterations needed to obtain convergence." << std::endl;
 }
+
 template <int dim, int spacedim>
 void Step4<dim, spacedim>::output_results() const
 {
-    hp::QCollection<dim> quadrature_formula = catmull_clark->get_QCollection();
-    hp::FEValues<dim,spacedim> hp_fe_values(fe,
-                                            quadrature_formula,
-                                            update_values |
-                                            update_quadrature_points);
-//    RightHandSide<spacedim> analytical_solution;
-    BoundaryValues<spacedim> analytical_solution;
-    for (const auto &cell : dof_handler.active_cell_iterators())
-    {
-        const unsigned int dofs_per_cell = cell->get_fe().dofs_per_cell;
-        std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
-        cell->get_dof_indices(local_dof_indices);
-
-        hp_fe_values.reinit(cell);
-        const FEValues<dim,spacedim> &fe_values =
-        hp_fe_values.get_present_fe_values();
-        for (unsigned int q_point = 0; q_point <
-             fe_values.n_quadrature_points;
-             ++q_point){
-            double func_sol = 0;
-            for (unsigned int i = 0; i < dofs_per_cell; ++i)
-            {
-                func_sol += solution[local_dof_indices[i]] *
-                fe_values.shape_value(i, q_point);
-            }
-            std::cout <<"Quadrature point "<<q_point<< " func_sol = "<< func_sol <<" and analytical sol = "<<analytical_solution.value(fe_values.quadrature_point(q_point)) << " error = "<< abs(( func_sol -analytical_solution.value(fe_values.quadrature_point(q_point)))/ analytical_solution.value(fe_values.quadrature_point(q_point))) <<".\n";
-        }
-    }
     DataOut<dim, hp::DoFHandler<dim,spacedim>> data_out;
     data_out.attach_dof_handler(dof_handler);
     data_out.add_data_vector(solution, "solution");
@@ -312,6 +272,7 @@ void Step4<dim, spacedim>::output_results() const
     std::ofstream output("solution-2d.vtk");
     data_out.write_vtk(output);
 }
+
 template <int dim, int spacedim>
 void Step4<dim, spacedim>::run()
 {
@@ -323,6 +284,7 @@ void Step4<dim, spacedim>::run()
     solve();
     output_results();
 }
+
 int main()
 {
     deallog.depth_console(0);

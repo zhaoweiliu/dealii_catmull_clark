@@ -14,7 +14,7 @@
 #include <deal.II/grid/tria_iterator.h>
 #include <deal.II/grid/grid_generator.h>
 
-#include <deal.II/dofs/non_local_dof_handler.h>
+//#include <deal.II/dofs/non_local_dof_handler.h>
 
 #include <deal.II/dofs/dof_handler.h>
 #include <deal.II/dofs/dof_accessor.h>
@@ -29,23 +29,8 @@
 
 DEAL_II_NAMESPACE_OPEN
 
-// void
-// catmull_clark_create_fecollection_and_distribute_dofs(hp::DoFHandler<2, 3>
-// &dof_handler, hp::FECollection<2, 3>& fe_collection, const unsigned int
-// n_element);
-
-//void
-//  catmull_clark_create_fe_quadrature_and_mapping_collections_and_distribute_dofs(
-//    hp::DoFHandler<2, 3> &       dof_handler,
-//    hp::FECollection<2, 3> &     fe_collection,
-//    Vector<double> &             vec_values,
-//    hp::MappingCollection<2, 3> &mapping_collection,
-//    hp::QCollection<2> &         q_collection,
-//    hp::QCollection<2> &         boundary_q_collection,
-//    const unsigned int           n_element);
-
 template <int dim, int spacedim>
-class CatmullClark : public NonLocalDoFHandler<dim, spacedim>
+class CatmullClark /*: public NonLocalDoFHandler<dim, spacedim>*/
 {
 public:
   CatmullClark() = default;
@@ -91,16 +76,16 @@ public:
 
   void new_order_for_cells(hp::DoFHandler<dim, spacedim> &dof_handler);
 
-  virtual std::vector<types::global_dof_index> get_non_local_dof_indices(
-    const DoFCellAccessor<dim, spacedim, false> &accessor) const override;
+  std::vector<types::global_dof_index> non_local_dof_indices(
+    const DoFCellAccessor<dim, spacedim, false> &accessor) const;
 
 
-  virtual types::global_dof_index n_additional_non_local_dofs() const override
-  {
-    return 0;
-  }
+//  types::global_dof_index n_additional_non_local_dofs() const
+//  {
+//    return 0;
+//  }
     
-  std::shared_ptr<const NonLocalDoFHandler<dim, spacedim>> reference_ptr()
+  std::shared_ptr<CatmullClark<dim, spacedim>> reference_ptr()
   {
     return std::make_shared<CatmullClark<dim, spacedim>>(*this);
   }
