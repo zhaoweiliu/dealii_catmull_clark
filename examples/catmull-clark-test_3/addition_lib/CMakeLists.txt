@@ -1,0 +1,7 @@
+INCLUDE_DIRECTORIES(source)
+INCLUDE_DIRECTORIES(include)
+
+FILE(GLOB SRC_FILES source/*.cpp)
+FILE(GLOB HEAD_FILES include/*.hpp)
+ADD_LIBRARY(addition_lib STATIC ${SRC_FILES} ${HEAD_FILES})
+DEAL_II_SETUP_TARGET(addition_lib)
