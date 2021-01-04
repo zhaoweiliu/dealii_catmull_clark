@@ -3,32 +3,7 @@
 ##
 
 # Set the name of the project and target:
-SET(TARGET "step-4")
-
-# Declare all source files the target consists of. Here, this is only
-# the one step-X.cc file, but as you expand your project you may wish
-# to add other source files as well. If your project becomes much larger,
-# you may want to either replace the following statement by something like
-#    FILE(GLOB_RECURSE TARGET_SRC  "source/*.cc")
-#    FILE(GLOB_RECURSE TARGET_INC  "include/*.h")
-#    SET(TARGET_SRC ${TARGET_SRC}  ${TARGET_INC}) 
-# or switch altogether to the large project CMakeLists.txt file discussed
-# in the "CMake in user projects" page accessible from the "User info"
-# page of the documentation.
-
-INCLUDE_DIRECTORIES(source)
-file(GLOB SRC_FILES source/*.cpp)
-INCLUDE_DIRECTORIES(include)
-file(GLOB HEAD_FILES include/*.hpp)
-
-SET(TARGET_SRC
-  ${TARGET}.cc
-  ${SRC_FILES}
-  ${HEAD_FILES}
-  ${VTK_LIBRARIES}
-  )
-
-# Usually, you will not need to modify anything beyond this point...
+# SET(TARGET "CC_shell")
 
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8.12)
 
@@ -43,12 +18,10 @@ IF(NOT ${deal.II_FOUND})
     )
 ENDIF()
 
-# look for VTK package
-FIND_PACKAGE( VTK REQUIRED )
-include_directories( ${VTK_INCLUDE_DIRS} )
-set(THIS_LINK_LIBS ${THIS_LINK_LIBS} ${VTK_LIBRARIES})
-#target_link_libraries(TARGET ${VTK_LIBRARIES})
-
 DEAL_II_INITIALIZE_CACHED_VARIABLES()
-PROJECT(${TARGET})
-DEAL_II_INVOKE_AUTOPILOT()
+
+PROJECT(CC_shell)
+
+ADD_SUBDIRECTORY(addition_lib)
+ADD_SUBDIRECTORY(tests)
+ADD_SUBDIRECTORY(plot)
