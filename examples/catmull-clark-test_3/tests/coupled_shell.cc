@@ -957,7 +957,7 @@ int main()
             //            grid_in.read_msh(file);
             mesh.set_all_manifold_ids(0);
             mesh.set_manifold (0, surface_description);
-            mesh.refine_global(6);
+            mesh.refine_global(5);
         }else {
             if (type == "b")
             {
@@ -1632,9 +1632,9 @@ int main()
                 if ( cell->vertex(ivert)[0] <= -300. || cell->vertex(ivert)[0] >= 300.){
                     //                if ( cell->vertex(ivert)[0] == -300.){
                     unsigned int dof_id = cell->vertex_dof_index(ivert,0, cell->active_fe_index());
-                    fix_dof_indices.push_back(dof_id);
-                    fix_dof_indices.push_back(dof_id+1);
-                    //                    fix_dof_indices.push_back(dof_id+2);
+//                    fix_dof_indices.push_back(dof_id);
+//                    fix_dof_indices.push_back(dof_id+1);
+//                    fix_dof_indices.push_back(dof_id+2);
                     laplace_fix_dof_indices.push_back(dof_id/3);
                 }
             }else if (type == "b"){

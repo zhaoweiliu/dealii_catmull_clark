@@ -46,22 +46,22 @@ FE_Catmull_Clark<dim,spacedim>::FE_Catmull_Clark(const unsigned int val, const s
     rotated_angle = 0;
     // rotation does not work
 //    if(val == 2){
-//        switch (verts_id[0]) {
-//            case 0:
-//                rotated_angle = 0;
-//                break;
-//            case 1:
-//                rotated_angle =  1.5 * numbers::PI;
-//                break;
-//            case 2:
-//                rotated_angle =  0.5 * numbers::PI;
-//                break;
-//            case 3:
-//                rotated_angle =  1 * numbers::PI;
-//                break;
-//            default:
-//                break;
-//        }
+        switch (verts_id[0]) {
+            case 0:
+                rotated_angle = 0;
+                break;
+            case 1:
+                rotated_angle =  1.5 * numbers::PI;
+                break;
+            case 2:
+                rotated_angle =  0.5 * numbers::PI;
+                break;
+            case 3:
+                rotated_angle =  1 * numbers::PI;
+                break;
+            default:
+                break;
+        }
 //    }
     if (val == 1){
         // object_index is the id of two edges on the boundary;
