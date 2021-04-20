@@ -1276,16 +1276,6 @@ int main()
                     }
                 }
             }
-            //
-            //            if(dofs_per_cell/spacedim == 12){
-            //                double curvature_1 = 1./detJ * scalar_product(cross_product_3d(da_cov[0][0], a_cov[1]) + cross_product_3d(a_cov[0], da_cov[1][0]), covariant_to_contravariant(a_cov)[0]);
-            //                double curvature_2 = 1./detJ * scalar_product(cross_product_3d(da_cov[0][1], a_cov[1]) + cross_product_3d(a_cov[0], da_cov[1][1]), covariant_to_contravariant(a_cov)[1]);
-            //
-            //                std::cout << "curvature = " << curvature_1 << " "<< curvature_2 << std::endl;
-            //                //            std::cout << "mean curvature = " << 0.5 * trace(curvature_tensor) << std::endl;
-            //                //            std::cout << "gaussian curvature = " << determinant(curvature_tensor) << std::endl;
-            //                std::cout << "curvature error = "<< numbers::NumberTraits<double>::abs( curvature_1 - 1./300.)/(1./300.)<<std::endl;
-            //            }
             
             area += fe_values.JxW(q_point);
             
@@ -1312,8 +1302,7 @@ int main()
                         }
                     }
                 }
-                //                std::cout << "shape_der = " << shape_der <<std::endl;
-                //                std::cout << "shape_der2 = " << shape_der2 << std::endl;
+                
                 //  computation of the B operator (strains) for i_shape function
                 Tensor<2,dim, Tensor<1, spacedim>> membrane_strain;
                 Tensor<2,dim, Tensor<1, spacedim>> bending_strain;
@@ -1322,13 +1311,7 @@ int main()
                         for (unsigned int id = 0; id < spacedim; ++id) {
                             membrane_strain[ii][jj][id] = 0.5 * (a_cov[ii][id] * shape_der[jj] + a_cov[jj][id] * shape_der[ii]);
                             bending_strain[ii][jj][id] = - shape_der2[ii][jj] * a_cov[2][id] + (shape_der[0] * cross_product_3d(da_cov[ii][jj], a_cov[1])[id] + shape_der[1] * cross_product_3d(a_cov[0], da_cov[ii][jj])[id])/detJ + scalar_product(a_cov[2], da_cov[ii][jj]) * (shape_der[0] * cross_product_3d(a_cov[1], a_cov[2])[id] + shape_der[1] * cross_product_3d(a_cov[2], a_cov[0])[id]) / detJ;
-                            //                            bending_strain[ii][jj][id] = - shape_der2[ii][jj] * a_cov[2][id] + (shape_der[0] * cross_product_3d(da_cov[ii][jj], a_cov[1])[id] + shape_der[1] * cross_product_3d(a_cov[0], da_cov[ii][jj])[id])/detJ;
-                            
                         }
-                        //                        std::cout << "m = "<< membrane_strain[ii][jj] << "\n";
-                        //                        std::cout <<" b1 = "<<- shape_der2[ii][jj] * a_cov[2] <<"\n";
-                        //                        std::cout <<" b2 = "<< (shape_der[0] * cross_product_3d(da_cov[ii][jj], a_cov[1]) + shape_der[1] * cross_product_3d(a_cov[0], da_cov[ii][jj]))/detJ <<"\n";
-                        //                        std::cout <<" b3 = "<<  scalar_product(a_cov[2], da_cov[ii][jj]) * (shape_der[0] * cross_product_3d(a_cov[1], a_cov[2]) + shape_der[1] * cross_product_3d(a_cov[2], a_cov[0])) / detJ <<"\n";
                     }
                 }
                 
@@ -1352,11 +1335,9 @@ int main()
                 Tensor<4,2> H_tensor;
                 constitutive_fourth_tensors(H_tensor, gm_contra, possions);
                 
-                for (unsigned int i_node = 0; i_node < dofs_per_cell/spacedim; ++i_node)
-                {
+                for (unsigned int i_node = 0; i_node < dofs_per_cell/spacedim; ++i_node) {
                     Tensor<2, dim, Tensor<1, spacedim>> hn,hm;
                     double coeff = youngs/ (1. - possions*possions);
-                    
                     for(unsigned int ii = 0; ii < dim ; ++ii)
                     for(unsigned int jj = 0; jj < dim ; ++jj)
                     for(unsigned int kk = 0; kk < dim ; ++kk)
@@ -1615,7 +1596,7 @@ int main()
                     //                if ( cell->vertex(ivert)[0] <= 0 || cell->vertex(ivert)[0] >= 50 || cell->vertex(ivert)[1] > 16 || cell->vertex(ivert)[1] < -16)
                 {
                     unsigned int dof_id = cell->vertex_dof_index(ivert,0, cell->active_fe_index());
-//                    fix_dof_indices.push_back(dof_id);
+                    //                    fix_dof_indices.push_back(dof_id);
                     fix_dof_indices.push_back(dof_id+1);
                     fix_dof_indices.push_back(dof_id+2);
                     laplace_fix_dof_indices.push_back(dof_id/3);
@@ -1632,9 +1613,9 @@ int main()
                 if ( cell->vertex(ivert)[0] <= -300. || cell->vertex(ivert)[0] >= 300.){
                     //                if ( cell->vertex(ivert)[0] == -300.){
                     unsigned int dof_id = cell->vertex_dof_index(ivert,0, cell->active_fe_index());
-//                    fix_dof_indices.push_back(dof_id);
-//                    fix_dof_indices.push_back(dof_id+1);
-//                    fix_dof_indices.push_back(dof_id+2);
+                    //                    fix_dof_indices.push_back(dof_id);
+                    //                    fix_dof_indices.push_back(dof_id+1);
+                    //                    fix_dof_indices.push_back(dof_id+2);
                     laplace_fix_dof_indices.push_back(dof_id/3);
                 }
             }else if (type == "b"){
@@ -1855,7 +1836,7 @@ int main()
     //
     //        eigensolver.solve(coupled_system_matrix,mass_matrix,inverse,eigenvalues,eigenvectors);
     //
-//    coupled_system_matrix.compute_eigenvalues();
+    //    coupled_system_matrix.compute_eigenvalues();
     coupled_system_matrix.compute_generalized_eigenvalues_symmetric(mass_matrix_full, eigenvectors);
     unsigned int i_e = 0;
     for (unsigned int i = 0; i < eigenvalues.size(); ++i) {
