@@ -25,6 +25,6 @@ ADD_EXECUTABLE(unit_test unit_test.cc)
 DEAL_II_SETUP_TARGET(unit_test)
 TARGET_LINK_LIBRARIES(unit_test addition_lib ${LIBRARIES})
 
-ADD_EXECUTABLE(nonlinear_shell nonlinear_shell.cc)
+ADD_EXECUTABLE(nonlinear_shell nonlinear_shell_GL_strain.cc)
 DEAL_II_SETUP_TARGET(nonlinear_shell)
 TARGET_LINK_LIBRARIES(nonlinear_shell addition_lib ${LIBRARIES})

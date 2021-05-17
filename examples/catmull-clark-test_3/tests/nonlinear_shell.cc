@@ -316,27 +316,26 @@ public:
     r(dof_i),
     s(dof_j)
     {
-        Tensor<1,dim, Tensor<1,spacedim>> u_u, r_u;
         if (r%3 == 0) {
-            u_u[0] = {i_shape, 0, 0};
-            r_u[0] = {i_shape, 0, 0};
+            u_r = {i_shape, 0, 0};
+            r_r = {i_shape, 0, 0};
         }else if(r%3 == 1){
-            u_u[0] = {0, i_shape, 0};
-            r_u[0] = {0, i_shape, 0};
+            u_r = {0, i_shape, 0};
+            r_r = {0, i_shape, 0};
         }else if(r%3 == 2){
-            u_u[0] = {0, 0, i_shape};
-            r_u[0] = {0, 0, i_shape};
+            u_r = {0, 0, i_shape};
+            r_r = {0, 0, i_shape};
         }
         
         if (s%3 == 0) {
-            u_u[1] = {j_shape, 0, 0};
-            r_u[1] = {j_shape, 0, 0};
+            u_s = {j_shape, 0, 0};
+            r_s = {j_shape, 0, 0};
         }else if(s%3 == 1){
-            u_u[1] = {0, j_shape, 0};
-            r_u[1] = {0, j_shape, 0};
+            u_s = {0, j_shape, 0};
+            r_s = {0, j_shape, 0};
         }else if(s%3 == 2){
-            u_u[1] = {0, 0, j_shape};
-            r_u[1] = {0, 0, j_shape};
+            u_s = {0, 0, j_shape};
+            r_s = {0, 0, j_shape};
         }
         
         for (unsigned int i = 0; i < dim; ++i) {
@@ -453,6 +452,10 @@ public:
     Tensor<1, dim, Tensor<1, spacedim>> get_a3_da_dr(){return a3_da_dr;};
     Tensor<1, dim, Tensor<1, spacedim>> get_a3_da_ds(){return a3_da_ds;};
     Tensor<1, dim, Tensor<1, spacedim>> get_a3_da_drs(){return a3_da_drs;};
+    Tensor<1,spacedim> get_u_r(){return u_r;};
+    Tensor<1,spacedim> get_r_r(){return r_r;};
+    Tensor<1,spacedim> get_u_s(){return u_s;};
+    Tensor<1,spacedim> get_r_s(){return r_s;};
     
 private:
     const double i_shape;
@@ -477,6 +480,7 @@ private:
     Tensor<1, dim, Tensor<1, spacedim>> a3_da_dr;
     Tensor<1, dim, Tensor<1, spacedim>> a3_da_ds;
     Tensor<1, dim, Tensor<1, spacedim>> a3_da_drs;
+    Tensor<1,spacedim> u_r, r_r, u_s, r_s;
 };
 
 
@@ -787,7 +791,7 @@ void Nonlinear_shell<dim, spacedim> :: assemble_system()
             std::vector<Tensor<1, spacedim>> shape_der_vec(dofs_per_cell);
             std::vector<Tensor<2, spacedim>> shape_der2_vec(dofs_per_cell);
             
-            Tensor<1, dim, Tensor<1,spacedim>> u_der; // u_{,i}
+            Tensor<1, dim, Tensor<1,spacedim>> u_der; // u_{,a}
             Tensor<2, dim, Tensor<1,spacedim>> u_der2; // u_{,ab}
             
             for (unsigned int i_shape = 0; i_shape < dofs_per_cell; ++i_shape) {
@@ -795,8 +799,8 @@ void Nonlinear_shell<dim, spacedim> :: assemble_system()
                 double i_shape_vlaue = fe_values.shape_value(i_shape, q_point);
                 Tensor<1, spacedim> i_shape_grad = fe_values.shape_grad(i_shape, q_point);
                 Tensor<2, spacedim> i_shape_hessian = fe_values.shape_hessian(i_shape, q_point);
-                Tensor<1, dim> i_shape_der;
-                Tensor<2, dim> i_shape_der2;
+                Tensor<1, dim> i_shape_der; // N_{,a}
+                Tensor<2, dim> i_shape_der2; // N_{,ab}
                 // transform to parametric domain
                 for (unsigned int id = 0; id < dim; ++id){
                     for (unsigned int kd = 0; kd < spacedim; ++kd){
@@ -815,7 +819,7 @@ void Nonlinear_shell<dim, spacedim> :: assemble_system()
                 for (unsigned int ia = 0; ia < dim; ++ia){
                     switch (i_shape % 3) {
                         case 0:
-                            u_der[ia][0] += i_shape_der[ia] * present_solution(local_dof_indices[i_shape]);
+                            u_der[ia][0] += i_shape_der[ia] * present_solution(local_dof_indices[i_shape]); // u_{,a} = sum N^A_{,a} * U_A
                             break;
                         case 1:
                             u_der[ia][1] += i_shape_der[ia] * present_solution(local_dof_indices[i_shape]);
@@ -829,7 +833,7 @@ void Nonlinear_shell<dim, spacedim> :: assemble_system()
                     for (unsigned int ib = 0; ib < dim; ++ib){
                         switch (i_shape % 3) {
                             case 0:
-                                u_der2[ia][ib][0] += i_shape_der2[ia][ib] * present_solution(local_dof_indices[i_shape]);
+                                u_der2[ia][ib][0] += i_shape_der2[ia][ib] * present_solution(local_dof_indices[i_shape]); // u_{,ab} = sum N^A_{,ab} * U_A
                                 break;
                             case 1:
                                 u_der2[ia][ib][1] += i_shape_der2[ia][ib] * present_solution(local_dof_indices[i_shape]);
@@ -865,11 +869,26 @@ void Nonlinear_shell<dim, spacedim> :: assemble_system()
                     auto shape_r_der2 = shape_der2_vec[r_shape];
                     
                     linearisation_derivatives<dim,spacedim> L_derivs(shape_r, shape_r_der, shape_r_der2, shape_s, shape_s_der, shape_s_der2, a_cov_def, da_cov_def, r_shape, s_shape);
+                    // terms to compute residual vector
                     Tensor<2, dim, Tensor<1, spacedim>> d2a3_cov_def = L_derivs.get_a3_dab();
+                    Tensor<1, dim, Tensor<1, spacedim>> a_cov_def_dr = L_derivs.get_a_cov_ar();
+                    Tensor<1, dim, Tensor<1, spacedim>> a3_cov_def_dr = L_derivs.get_a3_dr();
+                    Tensor<1, dim, Tensor<1, spacedim>> a3_cov_def_da_dr = L_derivs.get_a3_da_dr();
+                    Tensor<1,spacedim> u_r = L_derivs.get_u_r();
+                    
+                    // terms required in matrix
+                    auto a3_cov_def_drs = L_derivs.get_a3_drs();
+                    auto a3_cov_def_da_drs = L_derivs.get_a3_da_drs();
+                    
+                    Tensor<1, dim, Tensor<1, spacedim>> a_cov_def_ds = L_derivs.get_a_cov_as();
+                    Tensor<1, dim, Tensor<1, spacedim>> a3_cov_def_ds = L_derivs.get_a3_ds();
+                    Tensor<1, dim, Tensor<1, spacedim>> a3_cov_def_da_ds = L_derivs.get_a3_da_ds();
+
                     
                     double stretch = 0.;
                     Tensor<1, dim> stretch_da;
                     Tensor<2,spacedim> force_resultants;
+                    Tensor<2,spacedim> force_resultants_ds;
                     Tensor<1,dim,Tensor<1, spacedim>> moment_resultants;
                     for (unsigned int iq_1d = 0; iq_1d < Qthickness.size(); ++iq_1d) {
                         double u_t = Qthickness.get_points()[iq_1d][0];
@@ -884,8 +903,8 @@ void Nonlinear_shell<dim, spacedim> :: assemble_system()
                         double J_ratio = detJ_g_ref/detJ_ref;
         //                g_cov_ref[2] = g_cov_ref[2]/detJ_g;
                         g_cov_ref[2] = a_cov_ref[2]; // Kirchhoff-Love assumption
-                        Tensor<2, dim, Tensor<1, spacedim>> dg_cov_def = da_cov_def + zeta * d2a3_cov_def;
-                        
+                        Tensor<2, dim, Tensor<1, spacedim>> dg_cov_def = da_cov_def + zeta * d2a3_cov_def; // g_{a,b} = a_{a,b} + zeta * a3_{,ab}
+                        Tensor<1, dim, Tensor<1, spacedim>> g_cov_def_ds = a_cov_def_ds + zeta * a3_cov_def_da_ds; // g_{a,s} = a_{a,s} + zeta * a3_{,a},s
                         for (unsigned id = 0; id < spacedim; ++id) {
                             for (unsigned jd = 0; jd < spacedim; ++jd) {
                                 gm_cov_ref[id][jd] += g_cov_ref[id] * g_cov_ref[jd];
@@ -900,26 +919,42 @@ void Nonlinear_shell<dim, spacedim> :: assemble_system()
                         double g_33 = determinant(gm_cov_ref)/determinant(gm_cov_def);
                         gm_cov_def[2][2] = g_33;
                         auto gm_contra_def = transpose(invert(gm_cov_def));
-                        stretch += sqrt(g_33) * w_t;
                         
-                        Tensor<3, dim, Tensor<1, spacedim>> dgm_cov_def;
+                        stretch += sqrt(g_33) * w_t;
+
+                        Tensor<3, dim, Tensor<1, spacedim>> dgm_cov_def; // gm_{ab,c}
+                        Tensor<2, dim, Tensor<1, spacedim>> gm_cov_def_ds; // gm_{ab,s}
                         for (unsigned int ia = 0; ia < dim; ++ia){
                             for (unsigned int ib = 0; ib < dim; ++ib){
+                                gm_cov_def_ds[ia][ib] += scalar_product(g_cov_def_ds[ia], g_cov_def[ib]) + scalar_product(g_cov_def_ds[ib], g_cov_def[ia]);
                                 for (unsigned int ic = 0; ic < dim; ++ic){
-                                    dgm_cov_def[ia][ib][ic] += scalar_product(dg_cov_def[ia][ic], g_cov_def[ib]) + scalar_product(dg_cov_def[ib][ic], g_cov_def[ia]);
+                                    dgm_cov_def[ia][ib][ic] += scalar_product(dg_cov_def[ia][ic], g_cov_def[ib])
+                                    + scalar_product(dg_cov_def[ib][ic], g_cov_def[ia]); // gm_{ab,c}
                                 }
                             }
                         }
                         
-        //                for (unsigned int ia = 0; ia < dim; ++ia) {
-        //                    stretch_der[ia] =
-        //                }
-                
+                        Tensor<1,dim> sqrt_g33_da;
+                        for (unsigned int ia = 0; ia < dim; ++ia) {
+                            sqrt_g33_da[ia] = - determinant(gm_cov_ref) *
+                            (gm_cov_def[1][1] * dgm_cov_def[0][0][ia] + gm_cov_def[0][0] * dgm_cov_def[1][1][ia]
+                             -gm_cov_def[1][0] * dgm_cov_def[0][1][ia] - gm_cov_def[0][1] * dgm_cov_def[1][0][ia])/
+                            (2.* pow((gm_cov_def[0][0] * gm_cov_def[1][1] - gm_cov_def[0][1] * gm_cov_def[1][0]), 2) * sqrt(g_33));
+                        }
+                        double sqrt_g33_ds = - determinant(gm_cov_ref) *
+                        (gm_cov_def[1][1] * gm_cov_def_ds[0][0] + gm_cov_def[0][0] * gm_cov_def_ds[1][1]
+                         -gm_cov_def[1][0] * gm_cov_def_ds[0][1] - gm_cov_def[0][1] * gm_cov_def_ds[1][0])/
+                        (2.* pow((gm_cov_def[0][0] * gm_cov_def[1][1] - gm_cov_def[0][1] * gm_cov_def[1][0]), 2) * sqrt(g_33));
+                        
+                        Tensor<1, spacedim> g3_cov_def_ds = sqrt(g_33) * a3_cov_def_ds + sqrt_g33_ds * a_cov_def[2];
+                        
                         Tensor<2,spacedim> tau = get_tau_mooney_rivlin(c_1, c_2, gm_contra_ref, gm_cov_def, gm_contra_def);
+                        
                         for (unsigned int ia = 0; ia < dim; ++ia) {
                             force_resultants[ia] += thickness * tau * g_cov_def[ia] * J_ratio * w_t;
                             moment_resultants[ia] += thickness * tau * g_cov_def[ia] * zeta * J_ratio * w_t;
                         }
+                        
                         g_cov_def[2] = sqrt(g_33) * a_cov_def[2]; // now modify the g_3  = lambda_3 * a_3
                         force_resultants[2] += thickness * tau * g_cov_def[2] * J_ratio * w_t;
                     }//loop over thickness quadrature points
@@ -930,7 +965,6 @@ void Nonlinear_shell<dim, spacedim> :: assemble_system()
         force_rhs.add(local_dof_indices, cell_force_rhs);
         stiffness_matrix.add(local_dof_indices, local_dof_indices, cell_stiffness_matrix);
     } // loop over cells
-    
 }
 
 
