@@ -28,3 +28,7 @@ TARGET_LINK_LIBRARIES(unit_test addition_lib ${LIBRARIES})
 ADD_EXECUTABLE(nonlinear_shell nonlinear_shell_GL_strain.cc)
 DEAL_II_SETUP_TARGET(nonlinear_shell)
 TARGET_LINK_LIBRARIES(nonlinear_shell addition_lib ${LIBRARIES})
+
+ADD_EXECUTABLE(nonlinear_shell_stretch nonlinear_shell_GL_strain_stretch.cc)
+DEAL_II_SETUP_TARGET(nonlinear_shell_stretch)
+TARGET_LINK_LIBRARIES(nonlinear_shell_stretch addition_lib ${LIBRARIES})

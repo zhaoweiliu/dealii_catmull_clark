@@ -193,7 +193,8 @@ void CatmullClark<dim,spacedim>::set_FECollection(hp::DoFHandler<dim, spacedim> 
                         unsigned int n = 0;
                         for (unsigned int icell = 1 ; icell < 3; ++icell ){
                             for(unsigned int jv = 0; jv<4; ++jv){
-                                if(cell->vertex_index(iv) == cells[icell]->vertex_index(jv)){
+                                if(cell->vertex_index(iv) == cells[icell]->vertex_index(jv))
+                                {
                                     n += 1;
                                 }
                             }
