@@ -29,6 +29,25 @@ ADD_EXECUTABLE(nonlinear_shell nonlinear_shell_GL_strain.cc)
 DEAL_II_SETUP_TARGET(nonlinear_shell)
 TARGET_LINK_LIBRARIES(nonlinear_shell addition_lib ${LIBRARIES})
 
-ADD_EXECUTABLE(nonlinear_shell_stretch nonlinear_shell_GL_strain_stretch.cc)
-DEAL_II_SETUP_TARGET(nonlinear_shell_stretch)
-TARGET_LINK_LIBRARIES(nonlinear_shell_stretch addition_lib ${LIBRARIES})
+ADD_EXECUTABLE(cooks_membrane cooks_membrane.cc)
+DEAL_II_SETUP_TARGET(cooks_membrane)
+TARGET_LINK_LIBRARIES(cooks_membrane addition_lib ${LIBRARIES})
+
+ADD_EXECUTABLE(sphere_inflation sphere_inflation.cc)
+DEAL_II_SETUP_TARGET(sphere_inflation)
+TARGET_LINK_LIBRARIES(sphere_inflation addition_lib ${LIBRARIES})
+
+ADD_EXECUTABLE(sphere_inflation_u sphere_inflation_u.cc)
+DEAL_II_SETUP_TARGET(sphere_inflation_u)
+TARGET_LINK_LIBRARIES(sphere_inflation_u addition_lib ${LIBRARIES})
+
+#ADD_EXECUTABLE(sphere_arclength sphere_arclength_1.cc)
+#DEAL_II_SETUP_TARGET(sphere_arclength)
+#TARGET_LINK_LIBRARIES(sphere_arclength addition_lib ${LIBRARIES})
+
+ADD_EXECUTABLE(shell_flexo coupled_shell_flexo.cc)
+DEAL_II_SETUP_TARGET(shell_flexo)
+#TARGET_LINK_LIBRARIES(shell_flexo addition_lib)
+TARGET_LINK_LIBRARIES(shell_flexo addition_lib ${LIBRARIES})
+
+

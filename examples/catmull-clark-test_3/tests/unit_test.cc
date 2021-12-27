@@ -811,7 +811,7 @@ int main()
 {
     const int dim = 2, spacedim = 3;
     
-    std::string type = "s";
+    std::string type = "r";
     
     Triangulation<dim,spacedim> mesh;
     if (type == "r") {

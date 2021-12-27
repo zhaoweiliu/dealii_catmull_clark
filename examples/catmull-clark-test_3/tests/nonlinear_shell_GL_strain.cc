@@ -166,6 +166,8 @@ void vtk_plot(const std::string &filename, const hp::DoFHandler<2, 3> &dof_handl
     vtkSmartPointer<vtkPoints> points = vtkPoints::New();
     vtkSmartPointer<vtkDoubleArray> function = vtkDoubleArray::New();
     vtkSmartPointer<vtkDoubleArray> function_2 = vtkDoubleArray::New();
+    vtkSmartPointer<vtkDoubleArray> normal = vtkDoubleArray::New();
+    vtkSmartPointer<vtkDoubleArray> stretch = vtkDoubleArray::New();
     
     function->SetNumberOfComponents(3);
     function->SetName("disp");
@@ -173,10 +175,22 @@ void vtk_plot(const std::string &filename, const hp::DoFHandler<2, 3> &dof_handl
     function->SetComponentName(1, "y");
     function->SetComponentName(2, "z");
     
+    normal->SetNumberOfComponents(3);
+    normal->SetName("normal");
+    normal->SetComponentName(0, "x");
+    normal->SetComponentName(1, "y");
+    normal->SetComponentName(2, "z");
+    
+    stretch->SetNumberOfComponents(1);
+    stretch->SetName("stretch");
+    stretch->SetComponentName(0, "value");
+    
     if (potential.size() != 0){
-        function_2->SetNumberOfComponents(1);
-        function_2->SetName("potential");
-        function_2->SetComponentName(0, "value");
+        function_2->SetNumberOfComponents(3);
+        function_2->SetName("pressure");
+        function_2->SetComponentName(0, "value1");
+        function_2->SetComponentName(1, "value2");
+        function_2->SetComponentName(2, "value3");
     }
     
     int sample_offset = 0;
@@ -199,38 +213,40 @@ void vtk_plot(const std::string &filename, const hp::DoFHandler<2, 3> &dof_handl
                 Point<3,double> spt = {0,0,0};
                 Tensor<1,3,double> disp({0,0,0});
                 std::vector<Tensor<1,3>> JJ(3);
-                std::vector<Tensor<2,3>> JJ_grad(2);
+                std::vector<Tensor<1,3>> JJ_def(3);
+                //                std::vector<Tensor<2,3>> JJ_grad(2);
                 double sol = 0;
                 for (unsigned int idof = 0; idof < dofs_per_cell; ++idof)
                 {
                     double shapes = dof_handler.get_fe(cell->active_fe_index()).shape_value(idof, {u,v});
+                    const auto shape_der = dof_handler.get_fe(cell->active_fe_index()).shape_grad(idof, {u,v});
                     
                     sol += shapes * solution[local_dof_indices[idof]];
+                    spt[idof % 3] += shapes * vertices[local_dof_indices[idof]];
+                    disp[idof % 3] += shapes * solution[local_dof_indices[idof]];
                     
-                    switch (idof % 3) {
-                        case 0:
-                            spt[0] += shapes * vertices[local_dof_indices[idof]];
-                            disp[0] += shapes * solution[local_dof_indices[idof]];
-                            break;
-                        case 1:
-                            spt[1] += shapes * vertices[local_dof_indices[idof]];
-                            disp[1] += shapes * solution[local_dof_indices[idof]];
-                            break;
-                        case 2:
-                            spt[2] += shapes * vertices[local_dof_indices[idof]];
-                            disp[2] += shapes * solution[local_dof_indices[idof]];
-                            break;
-                    }
+                    JJ[0][idof % 3] += shape_der[0] * vertices[local_dof_indices[idof]];
+                    JJ[1][idof % 3] += shape_der[1] * vertices[local_dof_indices[idof]];
+                    JJ_def[0][idof % 3] += shape_der[0] * vertices[local_dof_indices[idof]] + shape_der[0] * solution[local_dof_indices[idof]];
+                    JJ_def[1][idof % 3] += shape_der[1] * vertices[local_dof_indices[idof]] + shape_der[1] * solution[local_dof_indices[idof]];
                 }
-                double p = 0;
+                Tensor<1,3,double> p;
                 if (potential.size() != 0){
-                    for (unsigned int jdof = 0; jdof < dofs_per_cell/3; ++jdof) {
-                        double shapes = dof_handler.get_fe(cell->active_fe_index()).shape_value(jdof*3, {u,v});
-                        p += shapes * potential[local_dof_indices[jdof*3]/3];
+                    for (unsigned int jdof = 0; jdof < dofs_per_cell; ++jdof) {
+                        double shapes = dof_handler.get_fe(cell->active_fe_index()).shape_value(jdof, {u,v});
+                        p[jdof % 3] += shapes * potential[local_dof_indices[jdof]];
                     }
                 }
                 
                 JJ[2] = cross_product_3d(JJ[0],JJ[1]);
+                JJ_def[2] = cross_product_3d(JJ_def[0],JJ_def[1]);
+                
+                double detJ = JJ[2].norm();
+                JJ[2] = JJ[2]/detJ;
+                double detJ_def = JJ_def[2].norm();
+                JJ_def[2] = JJ_def[2]/detJ_def;
+                
+                double principle_stretch = sqrt(detJ_def / detJ);
                 
                 double coordsdata [3] = {spt[0],spt[1],spt[2]};
                 
@@ -240,7 +256,17 @@ void vtk_plot(const std::string &filename, const hp::DoFHandler<2, 3> &dof_handl
                 function->InsertComponent(sample_offset+count, 1, disp[1]);
                 function->InsertComponent(sample_offset+count, 2, disp[2]);
                 if (potential.size() != 0)
-                    function_2->InsertComponent(sample_offset+count, 0, p);
+                {
+                    function_2->InsertComponent(sample_offset+count, 0, p[0]);
+                    function_2->InsertComponent(sample_offset+count, 1, p[1]);
+                    function_2->InsertComponent(sample_offset+count, 2, p[2]);
+                }
+                normal->InsertComponent(sample_offset+count, 0, JJ[2][0]);
+                normal->InsertComponent(sample_offset+count, 1, JJ[2][1]);
+                normal->InsertComponent(sample_offset+count, 2, JJ[2][2]);
+                
+                stretch->InsertComponent(sample_offset+count, 0, principle_stretch);
+                
                 ++count;
             }
         }
@@ -265,6 +291,8 @@ void vtk_plot(const std::string &filename, const hp::DoFHandler<2, 3> &dof_handl
     if (potential.size() != 0){
         grid -> GetPointData() -> AddArray(function_2);
     }
+    grid -> GetPointData() -> AddArray(normal);
+    grid -> GetPointData() -> AddArray(stretch);
     vtkSmartPointer<vtkXMLUnstructuredGridWriter> writer = vtkXMLUnstructuredGridWriter::New();
     writer -> SetFileName(filename.c_str());
     writer -> SetInputData(grid);
@@ -305,7 +333,7 @@ public:
                          const Tensor<2, spacedim> a_cov,
                          const Tensor<2, dim, Tensor<1,spacedim>> da_cov)
     :
-    c_1(c1),
+    mu(c1),
     thickness(h),
     a_cov_ref(a_cov),
     da_cov_ref(da_cov),
@@ -363,7 +391,7 @@ public:
     }
     
 private:
-    const double c_1;
+    const double mu;
     // covariant base  a_1, a_2, a_3;
     const Tensor<2, spacedim> a_cov_ref; // a_i = x_{,i} , i = 1,2,3
     // derivatives of covariant base a_1, a_2;
@@ -398,7 +426,7 @@ Tensor<2,dim> material_neo_hookean<dim, spacedim> :: get_stress(const double C_3
     Tensor<2,dim> tau;
     for (unsigned int ia = 0; ia < dim; ++ia)
         for (unsigned int ib = 0; ib < dim; ++ib)
-            tau[ia][ib] += c_1 * (gm_contra_ref[ia][ib] - C_33 * gm_contra_def[ia][ib]);
+            tau[ia][ib] += mu * (gm_contra_ref[ia][ib] - C_33 * gm_contra_def[ia][ib]);
     
     return tau;
 }
@@ -414,7 +442,7 @@ Tensor<4,dim> material_neo_hookean<dim, spacedim> ::get_elastic_tensor(const dou
         for (unsigned int ib = 0; ib < dim; ++ib)
             for (unsigned int ic = 0; ic < dim; ++ic)
                 for (unsigned int id = 0; id < dim; ++id)
-                    elastic_tensor[ia][ib][ic][id] += c_1  * C_33 * (2 * gm_contra_def[ia][ib] * gm_contra_def[ic][id] + gm_contra_def[ia][ic] * gm_contra_def[ib][id] + gm_contra_def[ia][id] * gm_contra_def[ib][ic] );
+                    elastic_tensor[ia][ib][ic][id] += mu  * C_33 * (2 * gm_contra_def[ia][ib] * gm_contra_def[ic][id] + gm_contra_def[ia][ic] * gm_contra_def[ib][id] + gm_contra_def[ia][id] * gm_contra_def[ib][ic] );
 
      return elastic_tensor;
 }
@@ -694,9 +722,9 @@ public:
     void setup_cell_qp (const double h,
                         const Tensor<2, spacedim> a_cov,
                         const Tensor<2, dim, Tensor<1,spacedim>> da_cov,
-                        const double c_1)
+                        const double mu)
     {
-        material.reset(new material_neo_hookean<dim,spacedim>(c_1, h, a_cov, da_cov));
+        material.reset(new material_neo_hookean<dim,spacedim>(mu, h, a_cov, da_cov));
     }
     
     void update_cell_qp(const Tensor<1, dim, Tensor<1,spacedim>> delta_u_der, /* du_{,a} */
@@ -1148,7 +1176,7 @@ void Nonlinear_shell<dim, spacedim> :: assemble_system(const bool initial_step)
                     }
                 }
             if(initial_step == true){
-                lqph[q_point].setup_cell_qp(thickness, a_cov_ref, da_cov_ref, c_1);
+                lqph[q_point].setup_cell_qp(thickness, a_cov_ref, da_cov_ref, mu);
             }
             
             std::vector<double> shape_vec(dofs_per_cell);
