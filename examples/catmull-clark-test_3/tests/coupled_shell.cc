@@ -904,7 +904,7 @@ int main()
 {
     const int dim = 2, spacedim = 3;
     
-    std::string type = "s";
+    std::string type = "b";
     
     Triangulation<dim,spacedim> mesh;
     if (type == "r") {
@@ -975,7 +975,7 @@ int main()
                 mesh.set_all_manifold_ids(0);
                 mesh.set_manifold (0, surface_description);
                 mesh.refine_global(1);
-                GridTools::rotate(numbers::PI*0.25, 0, mesh);
+//                GridTools::rotate(numbers::PI*0.25, 0, mesh);
             }
         }
     }
@@ -984,7 +984,9 @@ int main()
     
     //    mesh.refine_global(3);
     
-    std::ofstream output_file("sphere_mesh.vtu");
+//    std::ofstream output_file("sphere_mesh.vtu");
+    std::ofstream output_file("beam.vtu");
+
     GridOut().write_vtu(mesh, output_file);
     
     std::cout << "   Number of active cells: " << mesh.n_active_cells()

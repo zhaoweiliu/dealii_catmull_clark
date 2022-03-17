@@ -37,17 +37,25 @@ ADD_EXECUTABLE(sphere_inflation sphere_inflation.cc)
 DEAL_II_SETUP_TARGET(sphere_inflation)
 TARGET_LINK_LIBRARIES(sphere_inflation addition_lib ${LIBRARIES})
 
+ADD_EXECUTABLE(sphere_inflation_ac sphere_inflation_ac.cc)
+DEAL_II_SETUP_TARGET(sphere_inflation_ac)
+TARGET_LINK_LIBRARIES(sphere_inflation_ac addition_lib ${LIBRARIES})
+
 ADD_EXECUTABLE(sphere_inflation_u sphere_inflation_u.cc)
 DEAL_II_SETUP_TARGET(sphere_inflation_u)
 TARGET_LINK_LIBRARIES(sphere_inflation_u addition_lib ${LIBRARIES})
 
-#ADD_EXECUTABLE(sphere_arclength sphere_arclength_1.cc)
-#DEAL_II_SETUP_TARGET(sphere_arclength)
-#TARGET_LINK_LIBRARIES(sphere_arclength addition_lib ${LIBRARIES})
+ADD_EXECUTABLE(sphere_arclength sphere_arclength_1.cc)
+DEAL_II_SETUP_TARGET(sphere_arclength)
+TARGET_LINK_LIBRARIES(sphere_arclength addition_lib ${LIBRARIES})
 
 ADD_EXECUTABLE(shell_flexo coupled_shell_flexo.cc)
 DEAL_II_SETUP_TARGET(shell_flexo)
 #TARGET_LINK_LIBRARIES(shell_flexo addition_lib)
 TARGET_LINK_LIBRARIES(shell_flexo addition_lib ${LIBRARIES})
+
+ADD_EXECUTABLE(unit_test_verification unit_test_verification.cc)
+DEAL_II_SETUP_TARGET(unit_test_verification)
+TARGET_LINK_LIBRARIES(unit_test_verification addition_lib ${LIBRARIES})
 
 

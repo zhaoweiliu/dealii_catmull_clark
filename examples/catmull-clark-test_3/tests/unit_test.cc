@@ -1299,10 +1299,10 @@ int main()
                         for(unsigned int kk = 0; kk < dim ; ++kk)
                             for(unsigned int ll = 0; ll < dim ; ++ll)
                                 for (unsigned int id = 0; id < spacedim; ++id) {
-                                    hn[ii][jj][id] += thickness * coeff * H_tensor[ii][jj][kk][ll] * bn_vec[i_node][kk][ll][id];
-                                    hm[ii][jj][id] += 1./12. * thickness * thickness * thickness * coeff * H_tensor[ii][jj][kk][ll] * bm_vec[i_node][kk][ll][id];
-//                                    hn[ii][jj][id] += thickness * elastic_tensor_relaxed[ii][jj][kk][ll] * bn_vec[i_node][kk][ll][id];
-//                                    hm[ii][jj][id] += 1./12. * thickness * thickness * thickness * elastic_tensor_relaxed[ii][jj][kk][ll] * bm_vec[i_node][kk][ll][id];
+//                                    hn[ii][jj][id] += thickness * coeff * H_tensor[ii][jj][kk][ll] * bn_vec[i_node][kk][ll][id];
+//                                    hm[ii][jj][id] += 1./12. * thickness * thickness * thickness * coeff * H_tensor[ii][jj][kk][ll] * bm_vec[i_node][kk][ll][id];
+                                    hn[ii][jj][id] += thickness * elastic_tensor_relaxed[ii][jj][kk][ll] * bn_vec[i_node][kk][ll][id];
+                                    hm[ii][jj][id] += 1./12. * thickness * thickness * thickness * elastic_tensor_relaxed[ii][jj][kk][ll] * bm_vec[i_node][kk][ll][id];
                                 }
                 
                 for (unsigned int j_node = 0; j_node < dofs_per_cell/spacedim; ++j_node)
@@ -1634,7 +1634,6 @@ int main()
 
     Vector<double> potential_1 = op_m_inv_1 * op_c_1 * solution_disp_coupled;
     Vector<double> potential_2 = op_m_inv_2 * op_c_2 * solution_disp_coupled;
-//    std::cout <<"potential = " << potential << std::endl;
 
     vtk_plot("coupled_shell_solution.vtu", dof_handler, mapping_collection, vec_values, solution_disp_coupled, potential_2);
     vtk_plot("elastic_shell_solution.vtu", dof_handler, mapping_collection, vec_values, solution_disp);
