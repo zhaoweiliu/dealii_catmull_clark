@@ -622,19 +622,26 @@ Tensor<2,dim> material_mooney_rivlin<dim,spacedim> :: get_tau(const double C_33,
                                                               const Tensor<2,dim> gm_contra_def)
 {
     Tensor<2,dim> tau;
-    for (unsigned int ia = 0; ia < dim; ++ia){
-        for (unsigned int ib = 0; ib < dim; ++ib){
-            tau[ia][ib] += 2. * (c_1 * gm_contra_ref[ia][ib]) - 2. * c_1 * C_33 * gm_contra_def[ia][ib];
+    double trace_C = 0;
+    for (unsigned int ic = 0; ic < dim; ++ic){
+        for (unsigned int id = 0; id < dim; ++id){
+            trace_C += gm_cov_def[ic][id] * gm_contra_ref[ic][id];
         }
     }
+    trace_C += C_33;
+    Tensor<2,dim> T1;
     for (unsigned int ia = 0; ia < dim; ++ia){
         for (unsigned int ib = 0; ib < dim; ++ib){
             for (unsigned int ic = 0; ic < dim; ++ic){
                 for (unsigned int id = 0; id < dim; ++id){
-                    tau[ia][ib] += 2. * (  c_2 * ( gm_cov_def[ic][id] * gm_contra_ref[ic][id] * gm_contra_ref[ia][ib] -  gm_cov_def[ic][id] * gm_contra_ref[ia][ic] * gm_contra_ref[id][ib] )) - 2. * (  c_2 * ( gm_cov_def[ic][id] * gm_contra_ref[ic][id] ) ) * C_33 * gm_contra_def[ia][ib];
-
+                    T1[ia][ib] += gm_contra_ref[ia][ic] * gm_cov_def[ic][id] * gm_contra_ref[ib][id];
                 }
             }
+        }
+    }
+    for (unsigned int ia = 0; ia < dim; ++ia){
+        for (unsigned int ib = 0; ib < dim; ++ib){
+            tau[ia][ib] += 2 * c_1 * gm_contra_ref[ia][ib] + 2 * c_2 * (trace_C * gm_contra_ref[ia][ib] - T1[ia][ib]) - 2 * (c_1 + c_2 * trace_C) * C_33 * gm_contra_def[ia][ib] ;
         }
     }
     
@@ -649,17 +656,25 @@ Tensor<4, dim> material_mooney_rivlin<dim,spacedim> ::get_elastic_tensor(const d
                                                                          const Tensor<2,dim> gm_cov_def,
                                                                          const Tensor<2,dim> gm_contra_def)
 {
+    double trace_C = 0;
+    for (unsigned int ic = 0; ic < dim; ++ic){
+        for (unsigned int id = 0; id < dim; ++id){
+            trace_C += gm_cov_def[ic][id] * gm_contra_ref[ic][id];
+        }
+    }
+    trace_C += C_33;
+    
     Tensor<4, dim> elastic_tensor;
     Tensor<4, dim> d2psi_d2;
     Tensor<2, dim> dpsi_d33dab;
-    double dpsi_d33 = c_1;
+    double dpsi_d33 = c_1 + c_2 * trace_C;
     for (unsigned int ia = 0; ia < dim; ++ia) {
         for (unsigned int ib = 0; ib < dim; ++ib) {
             dpsi_d33dab[ia][ib] += c_2 * gm_contra_ref[ia][ib];
-            dpsi_d33 += c_2 * ( gm_cov_def[ia][ib] * gm_contra_ref[ia][ib] );
             for (unsigned int ic = 0; ic < dim; ++ic) {
                 for (unsigned int id = 0; id < dim; ++id) {
-                    d2psi_d2[ia][ib][ic][id] += c_2 * gm_contra_ref[ia][ib] * gm_contra_ref[ic][id] - 0.5 * c_2 * (gm_contra_ref[ia][ic] * gm_contra_ref[ib][id] + gm_contra_ref[ia][id] * gm_contra_ref[ib][ic]);
+//                    d2psi_d2[ia][ib][ic][id] += c_2 * gm_contra_ref[ia][ib] * gm_contra_ref[ic][id] - 0.5 * c_2 * (gm_contra_ref[ia][ic] * gm_contra_ref[ib][id] + gm_contra_ref[ia][id] * gm_contra_ref[ib][ic]);
+                    d2psi_d2[ia][ib][ic][id] += - 0.5 * c_2 * (gm_contra_ref[ia][ic] * gm_contra_ref[ib][id] + gm_contra_ref[ia][id] * gm_contra_ref[ib][ic] - 2 * gm_contra_ref[ia][ib] * gm_contra_ref[ic][id]);
                 }
             }
         }
@@ -1231,10 +1246,10 @@ void Nonlinear_shell<dim, spacedim> :: assemble_system(const bool initial_step)
         cell_external_force_rhs.reinit(dofs_per_cell);
         cell_external_force_rhs = 0;
         
-        PointHistory<dim,spacedim> *lqph = reinterpret_cast<PointHistory<dim,spacedim>*>(cell->user_pointer());
-//        PointHistory_MR<dim,spacedim> *lqph = reinterpret_cast<PointHistory_MR<dim,spacedim>*>(cell->user_pointer());
-        Assert(lqph >= &quadrature_point_history.front(), ExcInternalError());
-        Assert(lqph <= &quadrature_point_history.back(), ExcInternalError());
+//        PointHistory<dim,spacedim> *lqph = reinterpret_cast<PointHistory<dim,spacedim>*>(cell->user_pointer());
+        PointHistory_MR<dim,spacedim> *lqph = reinterpret_cast<PointHistory_MR<dim,spacedim>*>(cell->user_pointer());
+//        Assert(lqph >= &quadrature_point_history.front(), ExcInternalError());
+//        Assert(lqph <= &quadrature_point_history.back(), ExcInternalError());
         
         for (unsigned int q_point = 0; q_point < fe_values.n_quadrature_points;
              ++q_point)
@@ -1263,8 +1278,8 @@ void Nonlinear_shell<dim, spacedim> :: assemble_system(const bool initial_step)
                     }
                 }
             if(initial_step == true){
-//                lqph[q_point].setup_cell_qp(thickness, a_cov_ref, da_cov_ref, c_1, c_2);
-                lqph[q_point].setup_cell_qp(thickness, a_cov_ref, da_cov_ref, mu);
+                lqph[q_point].setup_cell_qp(thickness, a_cov_ref, da_cov_ref, c_1, c_2);
+//                lqph[q_point].setup_cell_qp(thickness, a_cov_ref, da_cov_ref, mu);
 
             }
             

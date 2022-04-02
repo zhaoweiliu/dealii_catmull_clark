@@ -1333,12 +1333,6 @@ int main()
             {
                 for (unsigned int j_node = 0; j_node < dofs_per_cell/spacedim; ++j_node)
                 {
-//                    for (unsigned int ii = 0; ii < spacedim; ++ii) {
-//                        for (unsigned int jj = 0; jj < spacedim; ++jj) {
-//                            cell_dielectric_matrix(i_node, j_node) -= (pow(thickness,5.) / 80. * rotated_dielectric_tensor[ii][jj] * fe_values.shape_grad(i_node * spacedim, q_point)[ii] * fe_values.shape_grad(j_node * spacedim, q_point)[jj] + pow(thickness, 3.)/3. * rotated_dielectric_tensor[ii][jj] * fe_values.shape_value(i_node*spacedim, q_point) * fe_values.shape_value(j_node*spacedim, q_point) * fe_values.normal_vector(q_point)[ii] * fe_values.normal_vector(q_point)[jj]) *
-//                            fe_values.JxW(q_point);
-//                        }
-//                    }
                     for (unsigned int ia = 0; ia < dim; ++ia) {
                         for (unsigned int ib = 0; ib < dim; ++ib) {
                             cell_dielectric_matrix_2(i_node, j_node) -= (pow(thickness,5.) / 30.) * dielectric_tensor_relaxed[ia][ib] * shape_der_vec[i_node][ia] * shape_der_vec[j_node][ib] * fe_values.JxW(q_point);
@@ -1348,23 +1342,8 @@ int main()
                     cell_dielectric_matrix_2(i_node, j_node) -= pow(thickness, 3.)/3. * dielectric_tensor_relaxed[2][2] * fe_values.shape_value(i_node*spacedim, q_point) *  fe_values.shape_value(j_node*spacedim, q_point) * fe_values.JxW(q_point);
                     cell_dielectric_matrix_1(i_node, j_node) -= thickness * dielectric_tensor_relaxed[2][2] * fe_values.shape_value(i_node*spacedim, q_point) *  fe_values.shape_value(j_node*spacedim, q_point) * fe_values.JxW(q_point);
 
-//                    for (unsigned int ii = 0; ii < spacedim; ++ii) {
-//                        for (unsigned int jj = 0; jj < dim; ++jj) {
-//                            for (unsigned int kk = 0; kk < dim; ++kk){
-//                                for (unsigned int jd = 0; jd < spacedim; ++jd) {
-//                                    cell_coupling_matrix(i_node, j_node * spacedim + jd) += (pow(thickness, 3.) / 12. * rotated_piezoelectric_tensor[ii][jj][kk] * fe_values.shape_grad(i_node * spacedim, q_point)[ii] * bn_vec[j_node][jj][kk][jd] + pow(thickness, 3.)/6. * rotated_piezoelectric_tensor[ii][jj][kk] * fe_values.shape_value(i_node * spacedim, q_point) * fe_values.normal_vector(q_point)[ii] * bm_vec[j_node][jj][kk][jd] )*
-//                                    fe_values.JxW(q_point);
-//                                }
-//                            }
-//                        }
-//                    }
                     for (unsigned int ib = 0 ; ib < dim; ++ib) {
                         for (unsigned int ic = 0 ; ic < dim; ++ic) {
-//                            for (unsigned int ia = 0 ; ia < dim; ++ia) {
-//                                for (unsigned int jd = 0; jd < spacedim; ++jd) {
-////                                    cell_coupling_matrix(i_node, j_node*spacedim+jd) -= pow(thickness, 3.) / 6. * piezoelectric_tensor_relaxed[ia][ib][ic] * shape_der_vec[i_node][ia] * bn_vec[j_node][ib][ic][jd] * fe_values.JxW(q_point);
-//                                }
-//                            }
                             for (unsigned int jd = 0; jd < spacedim; ++jd) {
                                 cell_coupling_matrix_2(i_node, j_node*spacedim+jd) += pow(thickness, 3.)/6. * piezoelectric_tensor_relaxed[2][ib][ic] * fe_values.shape_value(i_node * spacedim, q_point) * bm_vec[j_node][ib][ic][jd] * fe_values.JxW(q_point);
                                 cell_coupling_matrix_1(i_node, j_node*spacedim+jd) += thickness * piezoelectric_tensor_relaxed[2][ib][ic] * fe_values.shape_value(i_node * spacedim, q_point) * bn_vec[j_node][ib][ic][jd] * fe_values.JxW(q_point);
