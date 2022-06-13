@@ -871,8 +871,8 @@ int main()
             if (type == "b")
             {
             Point<dim> p1({-1,-0.06}), p2({1,0.06});
-            GridGenerator::subdivided_hyper_rectangle(mesh,{10,2}, p1, p2);
-            mesh.refine_global(1);
+            GridGenerator::subdivided_hyper_rectangle(mesh,{40,10}, p1, p2);
+//            mesh.refine_global(2);
             
 //            static CylindricalManifold<dim,spacedim> surface_description;
 //            std::string mfile = "/Users/zhaoweiliu/Documents/geometries/beam.msh";
@@ -1032,7 +1032,7 @@ int main()
     //    constraints.close();
     SparsityPattern      sparsity_pattern, sparsity_pattern_couple, sparsity_pattern_laplace;
     
-    SparseMatrix<double> stiffness_matrix, mass_matrix, coupling_matrix_2,coupling_matrix_3, coupling_matrix_1, coupling_matrix_phi2, dielectric_matrix_1,dielectric_matrix_2;
+    SparseMatrix<double> stiffness_matrix, mass_matrix, coupling_matrix_2,coupling_matrix_3, coupling_matrix_1, coupling_matrix_phi2, dielectric_matrix_1,dielectric_matrix_2,dielectric_matrix_3;
 
     Vector<double> solution_disp;
     Vector<double> solution_disp_coupled_pf;
@@ -1056,6 +1056,7 @@ int main()
     coupling_matrix_3.reinit(sparsity_pattern_couple);
     dielectric_matrix_1.reinit(sparsity_pattern_laplace);
     dielectric_matrix_2.reinit(sparsity_pattern_laplace);
+    dielectric_matrix_3.reinit(sparsity_pattern_laplace);
 
     solution_disp.reinit(dof_handler.n_dofs());
     force_rhs.reinit(dof_handler.n_dofs());
@@ -1071,9 +1072,11 @@ int main()
     FullMatrix<double> cell_coupling_matrix_phi2;
     FullMatrix<double> cell_coupling_matrix_3;
 
-    FullMatrix<double> cell_dielectric_matrix_2;
     FullMatrix<double> cell_coupling_matrix_1;
     FullMatrix<double> cell_dielectric_matrix_1;
+    FullMatrix<double> cell_dielectric_matrix_2;
+    FullMatrix<double> cell_dielectric_matrix_3;
+
     
     Vector<double>     cell_force_rhs;
     
@@ -1106,6 +1109,7 @@ int main()
         cell_coupling_matrix_2.reinit(dofs_per_cell/spacedim, dofs_per_cell);
         cell_coupling_matrix_phi2.reinit(dofs_per_cell/spacedim, dofs_per_cell);
         cell_coupling_matrix_3.reinit(dofs_per_cell/spacedim, dofs_per_cell);
+        cell_dielectric_matrix_3.reinit(dofs_per_cell/spacedim, dofs_per_cell/spacedim);
 
         cell_stiffness_matrix = 0;
         cell_mass_matrix = 0;
@@ -1115,6 +1119,8 @@ int main()
         cell_coupling_matrix_2 = 0;
         cell_coupling_matrix_phi2 = 0;
         cell_coupling_matrix_3 = 0;
+        cell_dielectric_matrix_3 = 0;
+
 
         cell_force_rhs.reinit(dofs_per_cell);
         cell_force_rhs = 0;
@@ -1189,11 +1195,6 @@ int main()
                             for (unsigned int ik = 0; ik < spacedim; ++ik) {
                                 for (unsigned int in = 0; in < spacedim; ++in) {
                                     modified_piezoelectric_tensor[ii][ij][ik] += piezoelectric_tensor[il][im][in] * scalar_product(a_contra[ii], t_cov[il]) * scalar_product(a_contra[ij], t_cov[im]) * scalar_product(a_contra[ik], t_cov[in]);
-                                    for (unsigned int io = 0; io < spacedim; ++io) {
-                                        for (unsigned int ip = 0; ip < spacedim; ++ip) {
-                                            modified_flexoelctric_tensor[ii][ij][il][im] += flexo_tensor[ik][in][io][ip] * scalar_product(a_contra[ii], t_cov[ik]) * scalar_product(a_contra[ij], t_cov[in]) * scalar_product(a_contra[il], t_cov[io]) * scalar_product(a_contra[im], t_cov[ip]);
-                                        }
-                                    }
                                 }
                             }
                         }
@@ -1201,10 +1202,6 @@ int main()
                 }
             }
 
-//            std::cout << modified_flexoelctric_tensor[2][0][0][2] << " " << modified_flexoelctric_tensor[2][1][1][2] << std::endl;
-//            std::cout << modified_piezoelectric_tensor[2][0][0] << " " << modified_piezoelectric_tensor[2][1][1] << std::endl;
-
-            
             for (unsigned int ia = 0; ia < spacedim; ++ia) {
                 for (unsigned int ja = 0; ja < spacedim; ++ja) {
                     for (unsigned int ib = 0; ib < spacedim; ++ib) {
@@ -1214,6 +1211,8 @@ int main()
                                     for (unsigned int id = 0; id < spacedim; ++id) {
                                         for (unsigned int jd = 0; jd < spacedim; ++jd) {
                                             modified_elastic_tensor[ia][ib][ic][id] += elastic_tensor[ja][jb][jc][jd] * scalar_product(a_contra[ia], t_cov[ja]) * scalar_product(a_contra[ib], t_cov[jb]) * scalar_product(a_contra[ic], t_cov[jc]) * scalar_product(a_contra[id], t_cov[jd]);
+                                            
+                                            modified_flexoelctric_tensor[ia][ib][ic][id] += flexo_tensor[ja][jb][jc][jd] * scalar_product(a_contra[ia], t_cov[ja]) * scalar_product(a_contra[ib], t_cov[jb]) * scalar_product(a_contra[ic], t_cov[jc]) * scalar_product(a_contra[id], t_cov[jd]);
                                         }
                                     }
                                 }
@@ -1225,11 +1224,11 @@ int main()
             
             Tensor<4,dim> elastic_tensor_relaxed;
             Tensor<3,spacedim> piezoelectric_tensor_relaxed;
-            Tensor<4,spacedim> flexoelectric_tensor_relaxed;
+//            Tensor<4,spacedim> flexoelectric_tensor_relaxed;
 
             for (unsigned int ia = 0; ia < dim; ++ia) {
                 piezoelectric_tensor_relaxed[2][ia][ia] = modified_piezoelectric_tensor[2][ia][ia] - (modified_piezoelectric_tensor[2][2][2] * modified_elastic_tensor[2][2][ia][ia]) / modified_elastic_tensor[2][2][2][2];
-                flexoelectric_tensor_relaxed[2][ia][ia][2] = modified_flexoelctric_tensor[2][ia][ia][2] - (modified_flexoelctric_tensor[2][2][2][2]* modified_elastic_tensor[2][2][ia][ia]) / modified_elastic_tensor[2][2][2][2];
+//                flexoelectric_tensor_relaxed[2][ia][ia][2] = modified_flexoelctric_tensor[2][ia][ia][2] - (modified_flexoelctric_tensor[2][2][2][2]* modified_elastic_tensor[2][2][ia][ia]) / modified_elastic_tensor[2][2][2][2];
                 for (unsigned int ib = 0; ib < dim; ++ib) {
                     for (unsigned int ic = 0; ic < dim; ++ic) {
                         for (unsigned int id = 0; id < dim; ++id) {
@@ -1242,6 +1241,7 @@ int main()
             for (unsigned int ii = 0; ii < spacedim; ++ii) {
                 for (unsigned int ij = 0; ij < spacedim; ++ij) {
                     dielectric_tensor_relaxed[ii][ij] = modified_dielectric_tensor[ii][ij] + (modified_piezoelectric_tensor[ii][2][2] * modified_piezoelectric_tensor[ij][2][2]) / modified_elastic_tensor[2][2][2][2];
+//                    +(modified_piezoelectric_tensor[ii][2][2] * modified_flexoelctric_tensor[ij][2][2][2]) / modified_elastic_tensor[2][2][2][2];
                 }
             }
     
@@ -1357,10 +1357,12 @@ int main()
                         for (unsigned int ib = 0; ib < dim; ++ib) {
                             cell_dielectric_matrix_2(i_node, j_node) -= (pow(thickness,5.) / 30.) * dielectric_tensor_relaxed[ia][ib] * shape_der_vec[i_node][ia] * shape_der_vec[j_node][ib] * fe_values.JxW(q_point);
                             cell_dielectric_matrix_1(i_node, j_node) -= (pow(thickness,3.) / 12.) * dielectric_tensor_relaxed[ia][ib] * shape_der_vec[i_node][ia] * shape_der_vec[j_node][ib] * fe_values.JxW(q_point);
+                            cell_dielectric_matrix_3(i_node, j_node) -= (pow(thickness,3.) / 12.) * modified_dielectric_tensor[ia][ib] * shape_der_vec[i_node][ia] * shape_der_vec[j_node][ib] * fe_values.JxW(q_point);
                         }
                     }
                     cell_dielectric_matrix_2(i_node, j_node) -= pow(thickness, 3.)/3. * dielectric_tensor_relaxed[2][2] * fe_values.shape_value(i_node*spacedim, q_point) *  fe_values.shape_value(j_node*spacedim, q_point) * fe_values.JxW(q_point);
                     cell_dielectric_matrix_1(i_node, j_node) -= thickness * dielectric_tensor_relaxed[2][2] * fe_values.shape_value(i_node*spacedim, q_point) *  fe_values.shape_value(j_node*spacedim, q_point) * fe_values.JxW(q_point);
+                    cell_dielectric_matrix_3(i_node, j_node) -= thickness * modified_dielectric_tensor[2][2] * fe_values.shape_value(i_node*spacedim, q_point) *  fe_values.shape_value(j_node*spacedim, q_point) * fe_values.JxW(q_point);
 
 //                    for (unsigned int ii = 0; ii < spacedim; ++ii) {
 //                        for (unsigned int jj = 0; jj < dim; ++jj) {
@@ -1564,6 +1566,8 @@ int main()
         coupling_matrix_2.add(local_electric_dof_indices, local_dof_indices, cell_coupling_matrix_2);
         coupling_matrix_phi2.add(local_electric_dof_indices, local_dof_indices, cell_coupling_matrix_phi2);
         coupling_matrix_3.add(local_electric_dof_indices, local_dof_indices, cell_coupling_matrix_3);
+        dielectric_matrix_3.add(local_electric_dof_indices, local_electric_dof_indices, cell_dielectric_matrix_3);
+
 
         // boundary conditions
         for (unsigned int ivert = 0; ivert < GeometryInfo<dim>::vertices_per_cell; ++ivert)
@@ -1634,17 +1638,22 @@ int main()
     const auto op_k = linear_operator(stiffness_matrix);
     const auto op_m_1 = linear_operator(dielectric_matrix_1);
     const auto op_m_2 = linear_operator(dielectric_matrix_2);
+    const auto op_m_3 = linear_operator(dielectric_matrix_3);
+
     PreconditionJacobi<SparseMatrix<double>> preconditioner_k;
     PreconditionJacobi<SparseMatrix<double>> preconditioner_m_1;
     PreconditionJacobi<SparseMatrix<double>> preconditioner_m_2;
+    PreconditionJacobi<SparseMatrix<double>> preconditioner_m_3;
     preconditioner_k.initialize(stiffness_matrix);
     preconditioner_m_1.initialize(dielectric_matrix_1);
     preconditioner_m_2.initialize(dielectric_matrix_2);
+    preconditioner_m_3.initialize(dielectric_matrix_3);
 
     ReductionControl reduction_control_M(4000, 1.0e-12, 1.0e-12);
     SolverCG<Vector<double>>    solver_M(reduction_control_M);
     const auto op_m_inv_1 = inverse_operator(op_m_1, solver_M, preconditioner_m_1);
     const auto op_m_inv_2 = inverse_operator(op_m_2, solver_M, preconditioner_m_2);
+    const auto op_m_inv_3 = inverse_operator(op_m_3, solver_M, preconditioner_m_3);
 
     const auto op_c_1 = linear_operator(coupling_matrix_1);
     const auto op_c_2 = linear_operator(coupling_matrix_2);
@@ -1655,7 +1664,7 @@ int main()
     const auto op_s_pf = op_k - transpose_operator(op_c_1) * op_m_inv_1 * op_c_1 - transpose_operator(op_c_phi2) * op_m_inv_2 * op_c_phi2;
 //    const auto op_s_1 = op_k - transpose_operator(op_c_1) * op_m_inv_1 * op_c_1;
     const auto op_s_p = op_k - transpose_operator(op_c_2) * op_m_inv_1 * op_c_2 - transpose_operator(op_c_phi2) * op_m_inv_2 * op_c_phi2;
-    const auto op_s_f = op_k - transpose_operator(op_c_3) * op_m_inv_1 * op_c_3;
+    const auto op_s_f = op_k - transpose_operator(op_c_3) * op_m_inv_3 * op_c_3;
 
     
     const auto op_smod_pf = constrained_linear_operator(constraints, op_s_pf);
@@ -1676,25 +1685,24 @@ int main()
     const auto op_sp_inv = inverse_operator(op_smod_p, solver_s, preconditioner_k);
     const auto op_sf_inv = inverse_operator(op_smod_f, solver_s, preconditioner_k);
 
-    solution_disp_coupled_pf = op_spf_inv * rhs_mod;
-    solution_disp_coupled_p = op_sp_inv * rhs_mod;
+//    solution_disp_coupled_pf = op_spf_inv * rhs_mod;
+//    solution_disp_coupled_p = op_sp_inv * rhs_mod;
+    std::cout << "solve equations!\n";
     solution_disp_coupled_f = op_sf_inv * rhs_mod;
 
-    solution_disp = op_k_inv * rhs_mod;
+//    solution_disp = op_k_inv * rhs_mod;
 
-    Vector<double> potential_1_pf = op_m_inv_1 * op_c_1 * solution_disp_coupled_pf;
-    Vector<double> potential_2_p = op_m_inv_2 * op_c_phi2 * solution_disp_coupled_pf;
-    Vector<double> potential_1_f = op_m_inv_1 * op_c_3 * solution_disp_coupled_pf;
+//    Vector<double> potential_1_pf = op_m_inv_1 * op_c_1 * solution_disp_coupled_pf;
+//    Vector<double> potential_2_p = op_m_inv_2 * op_c_phi2 * solution_disp_coupled_p;
+    Vector<double> potential_1_f = op_m_inv_3 * op_c_3 * solution_disp_coupled_f;
 
 //    std::cout <<"potential = " << potential << std::endl;
 
-    vtk_plot("coupled_shell_solution_pf.vtu", dof_handler, mapping_collection, vec_values, solution_disp_coupled_pf, potential_1_pf);
-    vtk_plot("coupled_shell_solution_p.vtu", dof_handler, mapping_collection, vec_values, solution_disp_coupled_p, potential_2_p);
-    vtk_plot_all("coupled_shell_solution_f.vtu", dof_handler, mapping_collection, vec_values, solution_disp_coupled_f, potential_1_f);
+//    vtk_plot("coupled_shell_solution_pf.vtu", dof_handler, mapping_collection, vec_values, solution_disp_coupled_pf, potential_1_pf);
+//    vtk_plot("coupled_shell_solution_p.vtu", dof_handler, mapping_collection, vec_values, solution_disp_coupled_p, potential_2_p);
+    vtk_plot("coupled_shell_solution_f.vtu", dof_handler, mapping_collection, vec_values, solution_disp_coupled_f, potential_1_f);
+//    vtk_plot("elastic_shell_solution.vtu", dof_handler, mapping_collection, vec_values, solution_disp);
 
-    vtk_plot("elastic_shell_solution.vtu", dof_handler, mapping_collection, vec_values, solution_disp);
-
-    
     for (unsigned int idof = 0; idof <fix_dof_indices.size(); ++idof) {
         for (unsigned int jdof = 0; jdof <dof_handler.n_dofs(); ++jdof) {
             if (fix_dof_indices[idof] == jdof){

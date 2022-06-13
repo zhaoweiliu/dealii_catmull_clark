@@ -58,4 +58,22 @@ ADD_EXECUTABLE(unit_test_verification unit_test_verification.cc)
 DEAL_II_SETUP_TARGET(unit_test_verification)
 TARGET_LINK_LIBRARIES(unit_test_verification addition_lib ${LIBRARIES})
 
+ADD_EXECUTABLE(plate_inflation_ac plate_inflation_ac.cc)
+DEAL_II_SETUP_TARGET(plate_inflation_ac)
+TARGET_LINK_LIBRARIES(plate_inflation_ac addition_lib ${LIBRARIES})
 
+ADD_EXECUTABLE(torus_inflation torus_inflation.cc)
+DEAL_II_SETUP_TARGET(torus_inflation)
+TARGET_LINK_LIBRARIES(torus_inflation addition_lib ${LIBRARIES})
+
+ADD_EXECUTABLE(spot_inflation spot_inflation.cc)
+DEAL_II_SETUP_TARGET(spot_inflation)
+TARGET_LINK_LIBRARIES(spot_inflation addition_lib ${LIBRARIES})
+
+ADD_EXECUTABLE(full_sphere full_sphere.cc)
+DEAL_II_SETUP_TARGET(full_sphere)
+TARGET_LINK_LIBRARIES(full_sphere addition_lib ${LIBRARIES})
+
+ADD_EXECUTABLE(shell_elastic_nonlinear shell_elastic_nonlinear.cc)
+DEAL_II_SETUP_TARGET(shell_elastic_nonlinear)
+TARGET_LINK_LIBRARIES(shell_elastic_nonlinear addition_lib ${LIBRARIES})

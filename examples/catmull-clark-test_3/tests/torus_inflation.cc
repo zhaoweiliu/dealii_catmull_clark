@@ -207,6 +207,76 @@ void cooks_membrane(Triangulation<dim, spacedim> &triangulation)
 
 
 
+template <int dim, int spacedim>
+std::map<unsigned int,unsigned int> dofs_map(const unsigned int n_dofs, const std::vector<unsigned int> fixed_dofs){
+    unsigned int un_fixed_dofs = n_dofs-fixed_dofs.size();
+    std::vector<unsigned int> fixed_dofs_copy = fixed_dofs;
+    std::map<unsigned int,unsigned int> dof_map;
+    unsigned int new_indices = 0;
+    for (unsigned int id = 0; id < n_dofs; ++id) {
+        bool constrained = false;
+        for (unsigned int ifd = 0; ifd < fixed_dofs_copy.size(); ++ifd) {
+            if (id == fixed_dofs_copy[ifd]) {
+                constrained = true;
+                fixed_dofs_copy.erase(fixed_dofs_copy.begin()+ifd);
+                break;
+            }
+        }
+        if (constrained == false) {
+            dof_map.insert(std::pair<unsigned int, unsigned int>(new_indices,id));
+            ++new_indices;
+        }
+    }
+    Assert(fixed_dofs_copy.size() == 0,ExcInternalError());
+    Assert(dof_map.size() == un_fixed_dofs,ExcInternalError());
+    return dof_map;
+}
+
+
+
+template <int dim, int spacedim>
+LAPACKFullMatrix<double> constrain_dofs_matrix(const LAPACKFullMatrix<double> full_stiffness_matrix, const std::vector<unsigned int> fixed_dofs){
+    const unsigned int n_dofs = full_stiffness_matrix.size(0);
+    std::map<unsigned int,unsigned int> dof_map = dofs_map<dim, spacedim>(n_dofs, fixed_dofs);
+    const unsigned int n_uncons_dofs = dof_map.size();
+    LAPACKFullMatrix<double> cons_full_stiffness_matrix(n_uncons_dofs,n_uncons_dofs);
+    for (std::map<unsigned int,unsigned int>::iterator iter_i = dof_map.begin(); iter_i != dof_map.end(); ++iter_i) {
+        for (std::map<unsigned int,unsigned int>::iterator iter_j = dof_map.begin(); iter_j != dof_map.end(); ++iter_j) {
+            cons_full_stiffness_matrix.set(iter_i->first, iter_j->first, full_stiffness_matrix(iter_i->second,iter_j->second));
+        }
+    }
+    return cons_full_stiffness_matrix;
+}
+
+
+
+template <int dim, int spacedim>
+Vector<double> constrain_rhs_vector(const Vector<double> rhs_vector, const std::vector<unsigned int> fixed_dofs){
+    const unsigned int n_dofs = rhs_vector.size();
+    std::map<unsigned int,unsigned int> dof_map = dofs_map<dim, spacedim>(n_dofs, fixed_dofs);
+    const unsigned int n_uncons_dofs = dof_map.size();
+    Vector<double> constrained_rhs_vector(n_uncons_dofs);
+    for (std::map<unsigned int,unsigned int>::iterator iter_i = dof_map.begin(); iter_i != dof_map.end(); ++iter_i) {
+        constrained_rhs_vector[iter_i->first] = rhs_vector[iter_i->second];
+    }
+    return constrained_rhs_vector;
+}
+
+
+
+template <int dim, int spacedim>
+Vector<double> restore_rhs_vector(const Vector<double> constrained_rhs_vector, const unsigned int n_dofs, const std::vector<unsigned int> fixed_dofs){
+    std::map<unsigned int,unsigned int> dof_map = dofs_map<dim, spacedim>(n_dofs, fixed_dofs);
+    Vector<double> restored_rhs_vector(n_dofs);
+    for (std::map<unsigned int,unsigned int>::iterator iter_i = dof_map.begin(); iter_i != dof_map.end(); ++iter_i) {
+        restored_rhs_vector[iter_i->second] = constrained_rhs_vector[iter_i->first];
+    }
+    return restored_rhs_vector;
+}
+
+
+
+
 void vtk_plot(const std::string &filename, const hp::DoFHandler<2, 3> &dof_handler, const hp::MappingCollection<2, 3> mapping, const Vector<double> vertices, const Vector<double> solution, const Vector<double> potential = Vector<double>(), const double p_t = 0){
     
     //    auto verts = dof_handler.get_triangulation().get_vertices();
@@ -1035,12 +1105,11 @@ private:
 
     Vector<double> vec_values;
     std::vector<types::global_dof_index> constrained_dof_indices;
-    std::vector<types::global_dof_index> fix_dof_indices;
     double f_load;
     double u_load;
     unsigned int total_q_points;
     const double tolerance = 1e-6;
-    const double thickness = 0.1;
+    const double thickness = 0.01;
     const double mu = 4.225e5, c_1 = 0.4375*mu, c_2 = 0.0625*mu;
 //    const double mu = 4.225e5, c_1 = 0.5*mu, c_2 = 0.;
 
@@ -1050,9 +1119,8 @@ private:
     const double reference_pressure = 5000;
     const unsigned int max_load_step = 100;
     const unsigned int max_newton_step = 20;
-    double psi_1 = 5e-7,psi_2 = 1, radius;
+    double psi_1 = 1e-9,psi_2 = 1, radius;
     bool converged = false;
-    unsigned int bifurcation_number = 0;
 };
 
 
@@ -1157,6 +1225,17 @@ Triangulation<dim,spacedim> set_mesh( std::string type )
         cooks_membrane(mesh);
         GridTools::scale(1e-3, mesh);
 //        mesh.refine_global(1);
+    }else if (type == "torus")
+    {
+//        std::string mfile = "/Users/zhaoweiliu/Documents/geometries/torus.msh";
+//        GridIn<2,3> grid_in;
+//        grid_in.attach_triangulation(mesh);
+//        std::ifstream file(mfile.c_str());
+//        Assert(file, ExcFileNotOpen(mfile.c_str()));
+//        grid_in.read_msh(file);
+//        mesh.refine_global(1);
+        GridGenerator::torus(mesh, 10, 5);
+        mesh.refine_global(1);
     }
     std::cout << "   Number of active cells: " << mesh.n_active_cells()
     << std::endl
@@ -1403,7 +1482,32 @@ void Nonlinear_shell<dim, spacedim> :: assemble_system(const bool first_load_ste
         internal_force_rhs.add(local_dof_indices, cell_internal_force_rhs);
         external_force_rhs.add(local_dof_indices, cell_external_force_rhs);
         tangent_matrix.add(local_dof_indices, local_dof_indices, cell_tangent_matrix);
+        
+        // constrain rigid body motion
+        for (unsigned int ivert = 0; ivert < GeometryInfo<dim>::vertices_per_cell; ++ivert){
+            if (std::abs(cell->vertex(ivert)[0] - 15.) < tolerance &&  std::abs(cell->vertex(ivert)[1] ) < tolerance && std::abs(cell->vertex(ivert)[2] ) < tolerance) {
+                unsigned int dof_id = cell->vertex_dof_index(ivert,0, cell->active_fe_index());
+//                constrained_dof_indices.push_back(dof_id);
+                constrained_dof_indices.push_back(dof_id + 1);
+                constrained_dof_indices.push_back(dof_id + 2);
+                
+            }
+            else if(std::abs(cell->vertex(ivert)[0] ) < tolerance &&  std::abs(cell->vertex(ivert)[1] ) < tolerance && std::abs(cell->vertex(ivert)[2] - 15.) < tolerance  ){
+                unsigned int dof_id = cell->vertex_dof_index(ivert,0, cell->active_fe_index());
+                constrained_dof_indices.push_back(dof_id);
+//                constrained_dof_indices.push_back(dof_id + 1);
+            }
+            else if(std::abs(cell->vertex(ivert)[0] + 15.) < tolerance &&  std::abs(cell->vertex(ivert)[1] ) < tolerance && std::abs(cell->vertex(ivert)[2] ) < tolerance){
+                unsigned int dof_id = cell->vertex_dof_index(ivert,0, cell->active_fe_index());
+//                constrained_dof_indices.push_back(dof_id + 1);
+                constrained_dof_indices.push_back(dof_id + 2);
+            }
+        }
+        
     } // loop over cells
+    std::sort(constrained_dof_indices.begin(), constrained_dof_indices.end());
+    auto last = std::unique(constrained_dof_indices.begin(), constrained_dof_indices.end());
+    constrained_dof_indices.erase(last, constrained_dof_indices.end());
     // K \Delta u = - Residual vector
     // Residual vector = f^int - lambda * f^ext
     residual_vector =  (lambda + pressure_increment_load_step) * external_force_rhs - internal_force_rhs;
@@ -1504,9 +1608,21 @@ void Nonlinear_shell<dim, spacedim>::assemble_boundary_mass_matrix_and_rhs()
 template <int dim, int spacedim>
 void Nonlinear_shell<dim, spacedim>::make_constrains(const unsigned int newton_iteration){
     
-        assemble_boundary_mass_matrix_and_rhs();
+//        assemble_boundary_mass_matrix_and_rhs();
 //        residual_vector += boundary_edge_load_rhs;
 //        external_force_rhs += boundary_edge_load_rhs;
+    for (unsigned int idof = 0; idof <constrained_dof_indices.size(); ++idof) {
+        for (unsigned int jdof = 0; jdof <dof_handler.n_dofs(); ++jdof) {
+            if (constrained_dof_indices[idof] == jdof){
+                tangent_matrix.set(constrained_dof_indices[idof], constrained_dof_indices[idof], penalty_factor);
+            }
+            else
+            {
+                tangent_matrix.set(constrained_dof_indices[idof], jdof, 0);
+                tangent_matrix.set(jdof, constrained_dof_indices[idof], 0);
+            }
+        }
+    }
         tangent_matrix.add(penalty_factor, boundary_mass_matrix);
         if (newton_iteration == 0) {
             residual_vector.add(penalty_factor, boundary_value_rhs);
@@ -1537,9 +1653,10 @@ void Nonlinear_shell<dim, spacedim>::solve(const bool first_load_step)
         
 //        solver.solve(tangent_matrix, solution_1, external_force_rhs, preconditioner);
 //        solver.solve(tangent_matrix, solution_2, residual_vector, preconditioner);
-        
+//
 //        pressure_newton_update = (-VTW(a_vector, solution_2) - A)/(b + VTW(a_vector, solution_1));
 //        solution_newton_update = pressure_newton_update * solution_1 + solution_2;
+        
         SparseDirectUMFPACK K_direct;
         K_direct.initialize(tangent_matrix);
         K_direct.vmult(solution_1, external_force_rhs);
@@ -1547,9 +1664,9 @@ void Nonlinear_shell<dim, spacedim>::solve(const bool first_load_step)
 
 //        auto solution_1 = op_k_inv * external_force_rhs;
 //        auto solution_2 = op_k_inv * residual_vector;
+        
         pressure_newton_update = (-VTW(a_vector, solution_2) - A)/(b + VTW(a_vector, solution_1));
         solution_newton_update = pressure_newton_update * solution_1 + solution_2;
-                
     }
 }
 
@@ -1562,12 +1679,12 @@ void Nonlinear_shell<dim, spacedim> ::run()
     for (unsigned int step = 0; step < max_load_step; ++step) {
         std::cout << "step = "<< step << std::endl;
         if(step == 0){
-            lambda = 0.1;
+            lambda = 0.05;
             first_load_step = true;
         }else{
             first_load_step = false;
             if (step == 1) {
-                pressure_increment_load_step = 0.1;
+                pressure_increment_load_step = 0.05;
             }
         }
         nonlinear_solver(first_load_step);
@@ -1591,7 +1708,7 @@ void Nonlinear_shell<dim, spacedim> ::run()
 //        pressure_increment_load_step = 0.1;
         std::cout << "pressure_load = " << lambda * reference_pressure << "n/m2" <<std::endl;
         
-        vtk_plot("arclength_sphere_= "+std::to_string(step)+".vtu", dof_handler, mapping_collection, vec_values, present_solution, Vector<double>(), lambda * reference_pressure);
+        vtk_plot("torus_= "+std::to_string(step)+".vtu", dof_handler, mapping_collection, vec_values, present_solution, Vector<double>(), lambda * reference_pressure);
         // initial guess for next load step
 //        solution_increment_load_step = solution_increment_load_step;
 //        pressure_increment_load_step = pressure_increment_load_step;
@@ -1612,7 +1729,7 @@ void Nonlinear_shell<dim, spacedim> ::nonlinear_solver(const bool first_load_ste
         if (newton_iteration == 0? first_newton_step = true:first_newton_step = false);
         assemble_system(first_load_step, first_newton_step);
         make_constrains(newton_iteration);
-
+        
         if (first_newton_step == true) {
             std::cout << "first newton iteration " << std::endl;
             residual_error = 1.;
@@ -1633,42 +1750,42 @@ void Nonlinear_shell<dim, spacedim> ::nonlinear_solver(const bool first_load_ste
 
         if ((residual_error < 1e-2 ) && solution_newton_update.l2_norm() < 1e-6) {
             std::cout << "converged.\n";
-//            LAPACKFullMatrix<double> full_tangent_lu(dof_handler.n_dofs());
-//            full_tangent_lu = tangent_matrix;
-//            full_tangent_lu.compute_lu_factorization();
-//            std::cout <<"determinant = "<< full_tangent_lu.determinant() << std::endl;
-//            if (std::abs(full_tangent_lu.determinant()) < 1e-5) {
-//                std::cout << "singular matrix. "<< std::endl;
-//            }
+            
             LAPACKFullMatrix<double> full_tangent(dof_handler.n_dofs());
             full_tangent = tangent_matrix;
+            LAPACKFullMatrix<double> reduced_full_tangent = constrain_dofs_matrix<dim, spacedim>(full_tangent, constrained_dof_indices);
+            LAPACKFullMatrix<double> full_tangent_lu = reduced_full_tangent;
             FullMatrix<double>       eigenvectors;
             Vector<double>           eigenvalues;
-            Vector<double>           eigenvec(dof_handler.n_dofs());
+            Vector<double>           eigenvec(dof_handler.n_dofs()-constrained_dof_indices.size());
             std::vector<Vector<double>>           eigenvecs(0);
-//            bifurcation = false;
-            full_tangent.compute_eigenvalues_symmetric(-200, 200, 1e-5, eigenvalues, eigenvectors);
+//            full_tangent.compute_eigenvalues(true,true);
+            reduced_full_tangent.compute_eigenvalues_symmetric(-200, 200, 1e-5, eigenvalues, eigenvectors);
+            full_tangent_lu.compute_lu_factorization();
+            std::cout <<"determinant = "<< full_tangent_lu.determinant() << std::endl;
             for(unsigned int ie = 0; ie < eigenvalues.size(); ++ie){
                 std::cout << eigenvalues[ie] << std::endl;
-                for (unsigned int idof = 0; idof < dof_handler.n_dofs(); ++idof) {
+                for (unsigned int idof = 0; idof < dof_handler.n_dofs()-constrained_dof_indices.size(); ++idof) {
                     eigenvec[idof] = eigenvectors[idof][ie];
                 }
-                eigenvecs.push_back(eigenvec);
-                if (std::abs(eigenvalues[ie]) <= 1) {
-                    std::cout << "zero eigen value exist!" << std::endl;
-                    ++bifurcation_number;
-                    vtk_plot("sphere_eigen_"+std::to_string(eigenvalues[ie])+"_"+std::to_string(bifurcation_number)+".vtu", dof_handler, mapping_collection, vec_values, eigenvec);
-//                    bifurcation_disp = eigenvec;
-//                    bifurcation = true;
+                Vector<double> restored_eigenvec = restore_rhs_vector<dim, spacedim>(eigenvec, dof_handler.n_dofs(), constrained_dof_indices);
+                eigenvecs.push_back(restored_eigenvec);
+                if (eigenvalues[ie] <= 0) {
+//                    std::cout << "zero eigen value exist!" << std::endl;
+                    vtk_plot("sphere_eigen_"+std::to_string(eigenvalues[ie])+".vtu", dof_handler, mapping_collection, vec_values, restored_eigenvec);
+
                 }
             }
+            vtk_plot("sphere_eigen_1.vtu", dof_handler, mapping_collection, vec_values, eigenvecs[0]);
+            vtk_plot("sphere_eigen_2.vtu", dof_handler, mapping_collection, vec_values, eigenvecs[1]);
+
+            
             tangent_matrix.reinit(sparsity_pattern);
             reference_pressure_VTV = VTV(external_force_rhs);
             internal_force_rhs.reinit(dof_handler.n_dofs());
             external_force_rhs.reinit(dof_handler.n_dofs());
             solution_newton_update.reinit(dof_handler.n_dofs());
             pressure_newton_update = 0;
-            
             break;
         }else{
             solve(first_load_step);
@@ -1694,7 +1811,7 @@ void Nonlinear_shell<dim, spacedim> ::nonlinear_solver(const bool first_load_ste
 int main()
 {
     const int dim = 2, spacedim = 3;
-    Triangulation<dim,spacedim> mesh = set_mesh<dim,spacedim>("quarter_sphere");
+    Triangulation<dim,spacedim> mesh = set_mesh<dim,spacedim>("torus");
     Nonlinear_shell<dim, spacedim> nonlinear_thin_shell(mesh);
     nonlinear_thin_shell.run();
     
