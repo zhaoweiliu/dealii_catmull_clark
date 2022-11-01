@@ -85,10 +85,11 @@ namespace FETools
     {
       AssertDimension(fes.size(), multiplicities.size());
 
-      unsigned int multiplied_dofs_per_vertex = 0;
-      unsigned int multiplied_dofs_per_line   = 0;
-      unsigned int multiplied_dofs_per_quad   = 0;
-      unsigned int multiplied_dofs_per_hex    = 0;
+      unsigned int multiplied_dofs_per_vertex         = 0;
+      unsigned int multiplied_dofs_per_line           = 0;
+      unsigned int multiplied_dofs_per_quad           = 0;
+      unsigned int multiplied_dofs_per_hex            = 0;
+      unsigned int multiplied_non_local_dofs_per_cell = 0;
 
       unsigned int multiplied_n_components = 0;
 
@@ -113,6 +114,8 @@ namespace FETools
             multiplied_dofs_per_quad +=
               fes[i]->dofs_per_quad * multiplicities[i];
             multiplied_dofs_per_hex += fes[i]->dofs_per_hex * multiplicities[i];
+            multiplied_non_local_dofs_per_cell +=
+              fes[i]->non_local_dofs_per_cell * multiplicities[i];
 
             multiplied_n_components +=
               fes[i]->n_components() * multiplicities[i];
@@ -151,6 +154,8 @@ namespace FETools
         dpo.push_back(multiplied_dofs_per_quad);
       if (dim > 2)
         dpo.push_back(multiplied_dofs_per_hex);
+      if (multiplied_non_local_dofs_per_cell > 0)
+        dpo.push_back(multiplied_non_local_dofs_per_cell);
 
       BlockIndices block_indices(0, 0);
 
@@ -314,8 +319,40 @@ namespace FETools
                       fes[base]->restriction_is_additive(index_in_base);
                   }
           }
+      unsigned int total_index_offset = total_index;
+      // 5. Non_local
+      unsigned int n_fe = 0;
+      for (unsigned int base = 0; base < fes.size(); ++base)
+        {
+          if (fes[base] != NULL && fes[base]->non_local_dofs_per_cell > 0)
+            {
+              ++n_fe;
+            }
+        }
+      for (unsigned int base = 0; base < n_fe; ++base)
+        {
+          for (unsigned int m = 0; m < multiplicities[base]; ++m)
+            {
+              for (unsigned int local_index = 0;
+                   local_index < fes[base]->non_local_dofs_per_cell;
+                   ++local_index)
+                {
+                  total_index = total_index_offset +
+                                local_index * (n_fe * multiplicities[base]) +
+                                base * multiplicities[base] + m;
 
-      Assert(total_index == n_shape_functions, ExcInternalError());
+                  const unsigned int index_in_base =
+                    (local_index + (fes[base]->dofs_per_cell -
+                                    fes[base]->non_local_dofs_per_cell));
+                  Assert(index_in_base < fes[base]->dofs_per_cell,
+                         ExcInternalError());
+                  retval[total_index] =
+                    fes[base]->restriction_is_additive(index_in_base);
+                }
+            }
+        }
+
+      // Assert(total_index == n_shape_functions, ExcInternalError());
 
       return retval;
     }
@@ -553,8 +590,53 @@ namespace FETools
                       }
                   }
           }
+      unsigned int total_index_offset = total_index;
+      // 5. non_local
+      unsigned int comp_start = 0;
+      unsigned int n_fe       = 0;
+      for (unsigned int base = 0; base < fes.size(); ++base)
+        {
+          if (fes[base] != NULL && fes[base]->non_local_dofs_per_cell > 0)
+            {
+              ++n_fe;
+            }
+        }
+      for (unsigned int base = 0; base < n_fe; ++base)
+        {
+          for (unsigned int m = 0; m < multiplicities[base];
+               ++m, comp_start += fes[base]->n_components() * do_tensor_product)
+            {
+              for (unsigned int non_local_index = 0;
+                   non_local_index < fes[base]->non_local_dofs_per_cell;
+                   ++non_local_index)
+                {
+                  total_index =
+                    total_index_offset +
+                    non_local_index * (n_fe * multiplicities[base]) +
+                    base * multiplicities[base] + m;
 
-      Assert(total_index == n_shape_functions, ExcInternalError());
+                  const unsigned int index_in_base =
+                    (non_local_index + (fes[base]->dofs_per_cell -
+                                        fes[base]->non_local_dofs_per_cell));
+
+                  Assert(comp_start + fes[base]->n_components() <=
+                           retval[total_index].size(),
+                         ExcInternalError());
+
+                  for (unsigned int c = 0; c < fes[base]->n_components(); ++c)
+                    {
+                      Assert(c < fes[base]
+                                   ->get_nonzero_components(index_in_base)
+                                   .size(),
+                             ExcInternalError());
+                      retval[total_index][comp_start + c] =
+                        fes[base]->get_nonzero_components(index_in_base)[c];
+                    }
+                }
+            }
+        }
+
+      // Assert(total_index == n_shape_functions, ExcInternalError());
 
       // now copy the vector<vector<bool> > into a vector<ComponentMask>.
       // this appears complicated but we do it this way since it's just
@@ -797,6 +879,7 @@ namespace FETools
              ++hex_number)
           {
             unsigned int comp_start = 0;
+
             for (unsigned int base = 0; base < fe.n_base_elements(); ++base)
               for (unsigned int m = 0; m < fe.element_multiplicity(base);
                    ++m,
@@ -833,6 +916,57 @@ namespace FETools
                         non_primitive_index;
                   }
           }
+      unsigned int total_index_offset = total_index;
+      // non-local
+      for (unsigned int base = 0; base < fe.n_base_elements(); ++base)
+        {
+          unsigned int comp_start = 0;
+          for (unsigned int m = 0; m < fe.element_multiplicity(base);
+               ++m,
+                            comp_start += fe.base_element(base).n_components() *
+                                          do_tensor_product)
+            {
+              for (unsigned int non_local_index = 0;
+                   non_local_index <
+                   fe.base_element(base).non_local_dofs_per_cell;
+                   ++non_local_index)
+                {
+                  total_index =
+                    total_index_offset +
+                    non_local_index *
+                      (fe.n_base_elements() * fe.element_multiplicity(base)) +
+                    base * fe.element_multiplicity(base) + m;
+
+                  const unsigned int index_in_base =
+                    (non_local_index +
+                     (fe.base_element(base).dofs_per_cell -
+                      fe.base_element(base).non_local_dofs_per_cell));
+
+                  system_to_base_table[total_index] =
+                    std::make_pair(std::make_pair(base, m), index_in_base);
+
+                  if (fe.base_element(base).is_primitive(index_in_base))
+                    {
+                      const unsigned int comp_in_base =
+                        fe.base_element(base)
+                          .system_to_component_index(index_in_base)
+                          .first;
+                      const unsigned int comp = comp_start + comp_in_base;
+                      const unsigned int index_in_comp =
+                        fe.base_element(base)
+                          .system_to_component_index(index_in_base)
+                          .second;
+                      system_to_component_table[total_index] =
+                        std::make_pair(comp, index_in_comp);
+                    }
+                  else
+                    {
+                      system_to_component_table[total_index] =
+                        non_primitive_index;
+                    }
+                }
+            }
+        }
     }
 
 

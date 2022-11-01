@@ -110,8 +110,7 @@ FESystem<dim, spacedim>::FESystem(const FiniteElement<dim, spacedim> &fe,
                                   const unsigned int n_elements)
   : FiniteElement<dim, spacedim>(
       FETools::Compositing::multiply_dof_numbers(&fe, n_elements),
-      FETools::Compositing::compute_restriction_is_additive_flags(&fe,
-                                                                  n_elements),
+      FETools::Compositing::compute_restriction_is_additive_flags(&fe,n_elements),
       FETools::Compositing::compute_nonzero_components(&fe, n_elements))
   , base_elements((n_elements > 0))
 {
