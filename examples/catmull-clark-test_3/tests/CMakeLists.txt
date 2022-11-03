@@ -77,3 +77,20 @@ TARGET_LINK_LIBRARIES(full_sphere addition_lib ${LIBRARIES})
 ADD_EXECUTABLE(shell_elastic_nonlinear shell_elastic_nonlinear.cc)
 DEAL_II_SETUP_TARGET(shell_elastic_nonlinear)
 TARGET_LINK_LIBRARIES(shell_elastic_nonlinear addition_lib ${LIBRARIES})
+
+ADD_EXECUTABLE(shell_elastic_inflation shell_elastic_inflation.cc)
+DEAL_II_SETUP_TARGET(shell_elastic_inflation)
+TARGET_LINK_LIBRARIES(shell_elastic_inflation addition_lib ${LIBRARIES})
+
+
+ADD_EXECUTABLE(cylinder cylinder.cc)
+DEAL_II_SETUP_TARGET(cylinder)
+TARGET_LINK_LIBRARIES(cylinder addition_lib ${LIBRARIES})
+
+ADD_EXECUTABLE(shell_elastic_nonlinear_tension shell_elastic_nonlinear_tension.cc)
+DEAL_II_SETUP_TARGET(shell_elastic_nonlinear_tension)
+TARGET_LINK_LIBRARIES(shell_elastic_nonlinear_tension addition_lib ${LIBRARIES})
+
+ADD_EXECUTABLE(half_torus half_torus.cc)
+DEAL_II_SETUP_TARGET(half_torus)
+TARGET_LINK_LIBRARIES(half_torus addition_lib ${LIBRARIES})

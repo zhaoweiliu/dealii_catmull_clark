@@ -885,8 +885,8 @@ private:
     const double tolerance = 1e-9;
     
     const double youngs = 1e7;
-    const double possions = 0.;
-    const double thickness = 1.;
+    const double possions = 0.5;
+    const double thickness = 1;
     
     const unsigned int max_newton_step = 20;
     const unsigned int max_load_step = 100;
@@ -928,7 +928,7 @@ void Nonlinear_shell<dim, spacedim> ::run()
     setup_system();
     bool first_load_step;
     for (unsigned int step = 0; step < max_load_step; ++step) {
-       f_load = 10 + step * 10.;
+       f_load = 1000 + step * 1000.;
         std::cout << "f_load = " << f_load << std::endl;
         solution_increment_load_step = 0;
         std::cout << "step = "<< step << std::endl;
@@ -1065,30 +1065,30 @@ void Nonlinear_shell<dim, spacedim> ::nonlinear_solver(const bool first_load_ste
         if ((residual_error < 1e-2 ) && newton_update.l2_norm() < 1e-6) {
             std::cout << "converged.\n";
             
-            LAPACKFullMatrix<double> full_tangent(dof_handler.n_dofs());
-            full_tangent = tangent_matrix;
-            LAPACKFullMatrix<double> reduced_full_tangent = constrain_dofs_matrix<dim, spacedim>(full_tangent, fix_dof_indices);
-            LAPACKFullMatrix<double> full_tangent_lu = reduced_full_tangent;
-            FullMatrix<double>       eigenvectors;
-            Vector<double>           eigenvalues;
-            Vector<double>           eigenvec(dof_handler.n_dofs()-fix_dof_indices.size());
-            std::vector<Vector<double>>           eigenvecs(0);
-            reduced_full_tangent.compute_eigenvalues_symmetric(-200, 200, 1e-5, eigenvalues, eigenvectors);
-            
-            for(unsigned int ie = 0; ie < eigenvalues.size(); ++ie){
-                std::cout << eigenvalues[ie] << std::endl;
-                for (unsigned int idof = 0; idof < dof_handler.n_dofs()-fix_dof_indices.size(); ++idof) {
-                    eigenvec[idof] = eigenvectors[idof][ie];
-                }
-                Vector<double> restored_eigenvec = restore_rhs_vector<dim, spacedim>(eigenvec, dof_handler.n_dofs(), fix_dof_indices);
-                eigenvecs.push_back(restored_eigenvec);
-                if (eigenvalues[ie] <= 0) {
-                    vtk_plot("sphere_eigen_"+std::to_string(eigenvalues[ie])+".vtu", dof_handler, mapping_collection, vec_values, restored_eigenvec);
-                }
-            }
-            if(eigenvecs.size() >= 1){
-                vtk_plot("sphere_eigen_1.vtu", dof_handler, mapping_collection, vec_values, eigenvecs[0]);
-            }
+//            LAPACKFullMatrix<double> full_tangent(dof_handler.n_dofs());
+//            full_tangent = tangent_matrix;
+//            LAPACKFullMatrix<double> reduced_full_tangent = constrain_dofs_matrix<dim, spacedim>(full_tangent, fix_dof_indices);
+//            LAPACKFullMatrix<double> full_tangent_lu = reduced_full_tangent;
+//            FullMatrix<double>       eigenvectors;
+//            Vector<double>           eigenvalues;
+//            Vector<double>           eigenvec(dof_handler.n_dofs()-fix_dof_indices.size());
+//            std::vector<Vector<double>>           eigenvecs(0);
+//            reduced_full_tangent.compute_eigenvalues_symmetric(-200, 200, 1e-5, eigenvalues, eigenvectors);
+//
+//            for(unsigned int ie = 0; ie < eigenvalues.size(); ++ie){
+//                std::cout << eigenvalues[ie] << std::endl;
+//                for (unsigned int idof = 0; idof < dof_handler.n_dofs()-fix_dof_indices.size(); ++idof) {
+//                    eigenvec[idof] = eigenvectors[idof][ie];
+//                }
+//                Vector<double> restored_eigenvec = restore_rhs_vector<dim, spacedim>(eigenvec, dof_handler.n_dofs(), fix_dof_indices);
+//                eigenvecs.push_back(restored_eigenvec);
+//                if (eigenvalues[ie] <= 0) {
+//                    vtk_plot("sphere_eigen_"+std::to_string(eigenvalues[ie])+".vtu", dof_handler, mapping_collection, vec_values, restored_eigenvec);
+//                }
+//            }
+//            if(eigenvecs.size() >= 1){
+//                vtk_plot("sphere_eigen_1.vtu", dof_handler, mapping_collection, vec_values, eigenvecs[0]);
+//            }
 
             
             tangent_matrix.reinit(sparsity_pattern);
@@ -1155,7 +1155,7 @@ void Nonlinear_shell<dim, spacedim>::assemble_boundary_force()
                             jxw = a_cov[0].norm() * b_fe_values.get_quadrature().weight(q_point);
                         }
                         if (i_shape%3 == 0){
-                            cell_load_rhs[i_shape] += f_load * b_fe_values.shape_value(i_shape, q_point) * jxw;
+                            cell_load_rhs[i_shape] += - f_load * b_fe_values.shape_value(i_shape, q_point) * jxw;
                         }
                     }
                 }
@@ -1389,7 +1389,7 @@ void Nonlinear_shell<dim, spacedim> :: assemble_system(const bool first_load_ste
                     }
                 }
                 if(r_shape%3 == 2){
-                    cell_external_force_rhs[r_shape] += - 0.1 * shape_r * fe_values.JxW(q_point); // f_z = -1
+                    cell_external_force_rhs[r_shape] += - 100 * shape_r * fe_values.JxW(q_point); // f_z = -1
                 }
             }//loop r_shape
         }// loop over quadratures
@@ -1399,19 +1399,24 @@ void Nonlinear_shell<dim, spacedim> :: assemble_system(const bool first_load_ste
         
         for (unsigned int ivert = 0; ivert < GeometryInfo<dim>::vertices_per_cell; ++ivert)
         {
-            if (cell->vertex(ivert)[0] == 100)
+            if (cell->vertex(ivert)[0] == 100 && (cell->vertex(ivert)[1] == 0. ) )
             {
                 unsigned int dof_id = cell->vertex_dof_index(ivert,0, cell->active_fe_index());
                 fix_dof_indices.push_back(dof_id);
                 fix_dof_indices.push_back(dof_id+1);
                 fix_dof_indices.push_back(dof_id+2);
             }
-            if (cell->vertex(ivert)[0] == 0)
+            if (cell->vertex(ivert)[0] == 100 &&( cell->vertex(ivert)[1] == 50.||cell->vertex(ivert)[1] == 100. || cell->vertex(ivert)[1] == 25.||cell->vertex(ivert)[1] == 75.))
             {
                 unsigned int dof_id = cell->vertex_dof_index(ivert,0, cell->active_fe_index());
-                fix_dof_indices.push_back(dof_id+1);
+                fix_dof_indices.push_back(dof_id);
                 fix_dof_indices.push_back(dof_id+2);
             }
+//            if (cell->vertex(ivert)[0] == 0 &&( cell->vertex(ivert)[1] == 0. ||cell->vertex(ivert)[1] == 50.||cell->vertex(ivert)[1] == 100. ||  cell->vertex(ivert)[1] == 25.||cell->vertex(ivert)[1] == 75.))
+//            {
+//                unsigned int dof_id = cell->vertex_dof_index(ivert,0, cell->active_fe_index());
+//                fix_dof_indices.push_back(dof_id+2);
+//            }
         }
     }//loop over cells
 //    residual_vector = external_force_rhs - internal_force_rhs;
@@ -1509,7 +1514,7 @@ Triangulation<dim,spacedim> set_mesh( std::string type )
     Triangulation<dim,spacedim> mesh;
     if (type == "plate"){
         GridGenerator::hyper_cube<dim,spacedim>(mesh,0,100);
-        mesh.refine_global(2);
+        mesh.refine_global(3);
     }
     std::cout << "   Number of active cells: " << mesh.n_active_cells()
     << std::endl

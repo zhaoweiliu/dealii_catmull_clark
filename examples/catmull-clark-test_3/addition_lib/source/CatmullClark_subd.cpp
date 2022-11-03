@@ -108,8 +108,8 @@ void Catmull_Clark_subdivision(Triangulation<2,3> &mesh){
                     f_b += fvs_mid[v_in_faces[vertex->index()][i]];
                 }
             }
-//            vvs[vertex->index()] = 1./2.*vertex->center() + 1./4.*f_b;
-            vvs[vertex->index()] = vertex->center();
+            vvs[vertex->index()] = 1./2.*vertex->center() + 1./4.*f_b;
+//            vvs[vertex->index()] = vertex->center();
         }
     }
     

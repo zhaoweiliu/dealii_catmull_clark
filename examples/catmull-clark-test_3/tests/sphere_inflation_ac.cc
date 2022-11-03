@@ -502,10 +502,23 @@ material_neo_hookean<dim, spacedim> :: get_integral_tensors()
         Tensor<2, dim> gm_cov_ref = metric_covariant(g_cov_ref); // gm_ab
         Tensor<2, dim> gm_contra_ref = metric_contravariant(gm_cov_ref);
         
-        Tensor<2, spacedim> g_cov_def = g_cov_ref;
-        g_cov_def[0] += u_der[0];
-        g_cov_def[1] += u_der[1];
-        Tensor<2, dim> gm_cov_def = metric_covariant(g_cov_def);
+        auto a_cov_def = a_cov_ref;
+        auto da_cov_def = da_cov_ref;
+        a_cov_def[0] += u_der[0];
+        a_cov_def[1] += u_der[1];
+        da_cov_def[0][0] += u_der2[0][0];
+        da_cov_def[0][1] += u_der2[0][1];
+        da_cov_def[1][0] += u_der2[1][0];
+        da_cov_def[1][1] += u_der2[1][1];
+        double a3_norm_def = cross_product_3d(a_cov_def[0], a_cov_def[1]).norm();
+        auto a3_def =  cross_product_3d(a_cov_def[0], a_cov_def[1])/a3_norm_def;
+        double l3 = a3_norm_ref/a3_norm_def;
+        Tensor<2, dim> gm_cov_def;
+        for (unsigned int ia = 0; ia < dim; ++ia) {
+            for (unsigned int ib = 0; ib < dim; ++ib) {
+                gm_cov_def[ia][ib] = scalar_product(a_cov_def[ia], a_cov_def[ib]) - 2 * zeta * l3 * scalar_product(da_cov_def[ia][ib], a3_def);
+            }
+        }
         Tensor<2, dim> gm_contra_def = metric_contravariant(gm_cov_def);
         
         // for incompressible material
@@ -735,10 +748,23 @@ material_mooney_rivlin<dim, spacedim> :: get_integral_tensors()
         Tensor<2, dim> gm_cov_ref = metric_covariant(g_cov_ref); // gm_ab
         Tensor<2, dim> gm_contra_ref = metric_contravariant(gm_cov_ref);
         
-        Tensor<2, spacedim> g_cov_def = g_cov_ref;
-        g_cov_def[0] += u_der[0];
-        g_cov_def[1] += u_der[1];
-        Tensor<2, dim> gm_cov_def = metric_covariant(g_cov_def);
+        auto a_cov_def = a_cov_ref;
+        auto da_cov_def = da_cov_ref;
+        a_cov_def[0] += u_der[0];
+        a_cov_def[1] += u_der[1];
+        da_cov_def[0][0] += u_der2[0][0];
+        da_cov_def[0][1] += u_der2[0][1];
+        da_cov_def[1][0] += u_der2[1][0];
+        da_cov_def[1][1] += u_der2[1][1];
+        double a3_norm_def = cross_product_3d(a_cov_def[0], a_cov_def[1]).norm();
+        auto a3_def =  cross_product_3d(a_cov_def[0], a_cov_def[1])/a3_norm_def;
+        double l3 = a3_norm_ref/a3_norm_def;
+        Tensor<2, dim> gm_cov_def;
+        for (unsigned int ia = 0; ia < dim; ++ia) {
+            for (unsigned int ib = 0; ib < dim; ++ib) {
+                gm_cov_def[ia][ib] = scalar_product(a_cov_def[ia], a_cov_def[ib]) - 2 * zeta * l3 * scalar_product(da_cov_def[ia][ib], a3_def);
+            }
+        }
         Tensor<2, dim> gm_contra_def = metric_contravariant(gm_cov_def);
         
         // for incompressible material
@@ -947,6 +973,8 @@ public:
     Tensor<1,spacedim> get_u_s(){return u_s;};
     Tensor<1,spacedim> get_r_s(){return r_s;};
     Tensor<1,spacedim> get_a3_t_ds(){return a3_t_ds;};
+    Tensor<1,spacedim> get_a3_ds(){return a3_ds;};
+
 
 private:
     const double i_shape;
@@ -1041,8 +1069,8 @@ private:
     unsigned int total_q_points;
     const double tolerance = 1e-6;
     const double thickness = 0.1;
-    const double mu = 4.225e5, c_1 = 0.4375*mu, c_2 = 0.0625*mu;
-//    const double mu = 4.225e5, c_1 = 0.5*mu, c_2 = 0.;
+//    const double mu = 4.225e5, c_1 = 0.4375*mu, c_2 = 0.0625*mu;
+    const double mu = 4.225e5, c_1 = 0.5*mu, c_2 = 0.;
 
 //    const double mu = 4.225e5;
     const QGauss<dim-1> Qthickness = QGauss<dim-1>(2);
@@ -1591,7 +1619,7 @@ void Nonlinear_shell<dim, spacedim> ::run()
 //        pressure_increment_load_step = 0.1;
         std::cout << "pressure_load = " << lambda * reference_pressure << "n/m2" <<std::endl;
         
-        vtk_plot("arclength_sphere_= "+std::to_string(step)+".vtu", dof_handler, mapping_collection, vec_values, present_solution, Vector<double>(), lambda * reference_pressure);
+        vtk_plot("arclength_sphere_NH= "+std::to_string(step)+".vtu", dof_handler, mapping_collection, vec_values, present_solution, Vector<double>(), lambda * reference_pressure);
         // initial guess for next load step
 //        solution_increment_load_step = solution_increment_load_step;
 //        pressure_increment_load_step = pressure_increment_load_step;
@@ -1640,35 +1668,35 @@ void Nonlinear_shell<dim, spacedim> ::nonlinear_solver(const bool first_load_ste
 //            if (std::abs(full_tangent_lu.determinant()) < 1e-5) {
 //                std::cout << "singular matrix. "<< std::endl;
 //            }
-            LAPACKFullMatrix<double> full_tangent(dof_handler.n_dofs());
-            full_tangent = tangent_matrix;
-            FullMatrix<double>       eigenvectors;
-            Vector<double>           eigenvalues;
-            Vector<double>           eigenvec(dof_handler.n_dofs());
-            std::vector<Vector<double>>           eigenvecs(0);
-//            bifurcation = false;
-            full_tangent.compute_eigenvalues_symmetric(-200, 200, 1e-5, eigenvalues, eigenvectors);
-            for(unsigned int ie = 0; ie < eigenvalues.size(); ++ie){
-                std::cout << eigenvalues[ie] << std::endl;
-                for (unsigned int idof = 0; idof < dof_handler.n_dofs(); ++idof) {
-                    eigenvec[idof] = eigenvectors[idof][ie];
-                }
-                eigenvecs.push_back(eigenvec);
-                if (std::abs(eigenvalues[ie]) <= 1) {
-                    std::cout << "zero eigen value exist!" << std::endl;
-                    ++bifurcation_number;
-                    vtk_plot("sphere_eigen_"+std::to_string(eigenvalues[ie])+"_"+std::to_string(bifurcation_number)+".vtu", dof_handler, mapping_collection, vec_values, eigenvec);
-//                    bifurcation_disp = eigenvec;
-//                    bifurcation = true;
-                }
-            }
+//            LAPACKFullMatrix<double> full_tangent(dof_handler.n_dofs());
+//            full_tangent = tangent_matrix;
+//            FullMatrix<double>       eigenvectors;
+//            Vector<double>           eigenvalues;
+//            Vector<double>           eigenvec(dof_handler.n_dofs());
+//            std::vector<Vector<double>>           eigenvecs(0);
+////            bifurcation = false;
+//            full_tangent.compute_eigenvalues_symmetric(-200, 200, 1e-5, eigenvalues, eigenvectors);
+//            for(unsigned int ie = 0; ie < eigenvalues.size(); ++ie){
+//                std::cout << eigenvalues[ie] << std::endl;
+//                for (unsigned int idof = 0; idof < dof_handler.n_dofs(); ++idof) {
+//                    eigenvec[idof] = eigenvectors[idof][ie];
+//                }
+//                eigenvecs.push_back(eigenvec);
+//                if (std::abs(eigenvalues[ie]) <= 1) {
+//                    std::cout << "zero eigen value exist!" << std::endl;
+//                    ++bifurcation_number;
+//                    vtk_plot("sphere_eigen_"+std::to_string(eigenvalues[ie])+"_"+std::to_string(bifurcation_number)+".vtu", dof_handler, mapping_collection, vec_values, eigenvec);
+////                    bifurcation_disp = eigenvec;
+////                    bifurcation = true;
+//                }
+//            }
             tangent_matrix.reinit(sparsity_pattern);
             reference_pressure_VTV = VTV(external_force_rhs);
             internal_force_rhs.reinit(dof_handler.n_dofs());
             external_force_rhs.reinit(dof_handler.n_dofs());
             solution_newton_update.reinit(dof_handler.n_dofs());
             pressure_newton_update = 0;
-            
+
             break;
         }else{
             solve(first_load_step);

@@ -198,123 +198,6 @@ LAPACKFullMatrix<double> constrain_dofs_matrix(const LAPACKFullMatrix<double> fu
 
 
 
-void vtk_plot(const std::string &filename, const hp::DoFHandler<2, 3> &dof_handler, const hp::MappingCollection<2, 3> mapping, const Vector<double> vertices, const Vector<double> solution, const Vector<double> potential = Vector<double>()){
-    
-//    auto verts = dof_handler.get_triangulation().get_vertices();
-    
-    const unsigned int ngridpts = 5;
-    const unsigned int seg_n = ngridpts-1;
-    vtkSmartPointer<vtkUnstructuredGrid> grid = vtkUnstructuredGrid::New();
-    vtkSmartPointer<vtkPoints> points = vtkPoints::New();
-    vtkSmartPointer<vtkDoubleArray> function = vtkDoubleArray::New();
-    vtkSmartPointer<vtkDoubleArray> function_2 = vtkDoubleArray::New();
-
-    function->SetNumberOfComponents(3);
-    function->SetName("disp");
-    function->SetComponentName(0, "x");
-    function->SetComponentName(1, "y");
-    function->SetComponentName(2, "z");
-    
-    if (potential.size() != 0){
-        function_2->SetNumberOfComponents(1);
-        function_2->SetName("potential");
-        function_2->SetComponentName(0, "value");
-    }
-    
-    int sample_offset = 0;
-    int count = 0;
-    double seg_length = 1./seg_n;
-    int numElem = dof_handler.get_triangulation().n_active_cells();
-    
-    std::vector<types::global_dof_index> local_dof_indices;
-
-    for (auto cell=dof_handler.begin_active();cell!=dof_handler.end(); ++cell){
-        
-        const unsigned int dofs_per_cell = cell->get_fe().dofs_per_cell;
-        local_dof_indices.resize(dofs_per_cell);
-        cell->get_dof_indices(local_dof_indices);
-        for(unsigned int iu = 0; iu < ngridpts; ++iu){
-            for(unsigned int iv = 0; iv < ngridpts; ++iv){
-                double u = iu*seg_length;
-                double v = iv*seg_length;
-//
-                Point<3,double> spt = {0,0,0};
-                Tensor<1,3,double> disp({0,0,0});
-                std::vector<Tensor<1,3>> JJ(3);
-                std::vector<Tensor<2,3>> JJ_grad(2);
-                double sol = 0;
-                for (unsigned int idof = 0; idof < dofs_per_cell; ++idof)
-                {
-                    double shapes = dof_handler.get_fe(cell->active_fe_index()).shape_value(idof, {u,v});
-
-                    sol += shapes * solution[local_dof_indices[idof]];
-                    
-                    switch (idof % 3) {
-                        case 0:
-                            spt[0] += shapes * vertices[local_dof_indices[idof]];
-                            disp[0] += shapes * solution[local_dof_indices[idof]];
-                            break;
-                        case 1:
-                            spt[1] += shapes * vertices[local_dof_indices[idof]];
-                            disp[1] += shapes * solution[local_dof_indices[idof]];
-                            break;
-                        case 2:
-                            spt[2] += shapes * vertices[local_dof_indices[idof]];
-                            disp[2] += shapes * solution[local_dof_indices[idof]];
-                            break;
-                    }
-                }
-                double p = 0;
-                if (potential.size() != 0){
-                    for (unsigned int jdof = 0; jdof < dofs_per_cell/3; ++jdof) {
-                        double shapes = dof_handler.get_fe(cell->active_fe_index()).shape_value(jdof*3, {u,v});
-                        p += shapes * potential[local_dof_indices[jdof*3]/3];
-                    }
-                }
-                                
-                JJ[2] = cross_product_3d(JJ[0],JJ[1]);
-                
-                double coordsdata [3] = {spt[0],spt[1],spt[2]};
-
-                points->InsertPoint(sample_offset+count, coordsdata);
-                                
-                function->InsertComponent(sample_offset+count, 0, disp[0]);
-                function->InsertComponent(sample_offset+count, 1, disp[1]);
-                function->InsertComponent(sample_offset+count, 2, disp[2]);
-                if (potential.size() != 0)
-                    function_2->InsertComponent(sample_offset+count, 0, p);
-                ++count;
-            }
-        }
-    }
-    uint sampleindex = 0;
-    //loop over elements
-    for(int e = 0; e < numElem; ++e){
-        for (unsigned int t = 0 ; t < seg_n; ++t){
-            for (unsigned int s = 0; s < seg_n; ++s){
-                vtkSmartPointer<vtkCell> cell = vtkQuad::New();
-                cell -> GetPointIds() -> SetId(0, sampleindex + t * ngridpts + s);
-                cell -> GetPointIds() -> SetId(1, sampleindex + t * ngridpts + s + 1);
-                cell -> GetPointIds() -> SetId(2, sampleindex + (t + 1) * ngridpts + s + 1 );
-                cell -> GetPointIds() -> SetId(3, sampleindex + (t + 1) * ngridpts + s);
-                grid -> InsertNextCell (cell -> GetCellType(), cell -> GetPointIds());
-            }
-        }
-        sampleindex += ngridpts * ngridpts;
-    }
-    grid -> SetPoints(points);
-    grid -> GetPointData() -> AddArray(function);
-    if (potential.size() != 0){
-        grid -> GetPointData() -> AddArray(function_2);
-    }
-    vtkSmartPointer<vtkXMLUnstructuredGridWriter> writer = vtkXMLUnstructuredGridWriter::New();
-    writer -> SetFileName(filename.c_str());
-    writer -> SetInputData(grid);
-    if (! writer -> Write()) {
-        std::cout<<" Cannot write displacement vtu file! ";
-    }
-}
-
 template <int spacedim>
 class RightHandSide : public Function<spacedim>
 {
@@ -492,6 +375,237 @@ void constitutive_tensors(Tensor<2, 3> &cn, Tensor<2, 3> &cm, const Tensor<2, 2>
   cm[2][1] = cm[1][2];
   cm[2][2] = bdd*cn[2][2];
  }
+
+
+
+void vtk_plot(const std::string &filename, const hp::DoFHandler<2, 3> &dof_handler, const hp::MappingCollection<2, 3> mapping, const Vector<double> vertices, const Vector<double> solution, const Vector<double> potential = Vector<double>()){
+    
+//    auto verts = dof_handler.get_triangulation().get_vertices();
+    
+    const unsigned int ngridpts = 10;
+    const unsigned int seg_n = ngridpts-1;
+    vtkSmartPointer<vtkUnstructuredGrid> grid = vtkUnstructuredGrid::New();
+    vtkSmartPointer<vtkPoints> points = vtkPoints::New();
+    vtkSmartPointer<vtkDoubleArray> function = vtkDoubleArray::New();
+    vtkSmartPointer<vtkDoubleArray> function_2 = vtkDoubleArray::New();
+    vtkSmartPointer<vtkDoubleArray> energy_n = vtkDoubleArray::New();
+    vtkSmartPointer<vtkDoubleArray> energy_m = vtkDoubleArray::New();
+
+
+    function->SetNumberOfComponents(3);
+    function->SetName("disp");
+    function->SetComponentName(0, "x");
+    function->SetComponentName(1, "y");
+    function->SetComponentName(2, "z");
+    
+    if (potential.size() != 0){
+        function_2->SetNumberOfComponents(1);
+        function_2->SetName("potential");
+        function_2->SetComponentName(0, "value");
+    }
+    
+    energy_n->SetNumberOfComponents(1);
+    energy_n->SetName("energy_n");
+    energy_n->SetComponentName(0, "value");
+    
+    energy_m->SetNumberOfComponents(1);
+    energy_m->SetName("energy_m");
+    energy_m->SetComponentName(0, "value");
+    
+    const double youngs = 5e8;
+    const double possions = 0.4;
+    const double thickness = 0.001;
+    
+    int sample_offset = 0;
+    int count = 0;
+    double seg_length = 1./seg_n;
+    int numElem = dof_handler.get_triangulation().n_active_cells();
+    
+    std::vector<types::global_dof_index> local_dof_indices;
+
+    for (auto cell=dof_handler.begin_active();cell!=dof_handler.end(); ++cell){
+        
+        const unsigned int dofs_per_cell = cell->get_fe().dofs_per_cell;
+        local_dof_indices.resize(dofs_per_cell);
+        cell->get_dof_indices(local_dof_indices);
+        for(unsigned int iu = 0; iu < ngridpts; ++iu){
+            for(unsigned int iv = 0; iv < ngridpts; ++iv){
+                double u = iu*seg_length;
+                double v = iv*seg_length;
+//
+                Point<3,double> spt = {0,0,0};
+                Tensor<1,3,double> disp({0,0,0});
+                Tensor<1,2,Tensor<1, 3>> disp_der;
+                Tensor<2,2,Tensor<1, 3>> disp_der2;
+
+                Tensor<2,3> JJ;
+                Tensor<2,3,Tensor<1, 3>> J_der;
+
+                double sol = 0;
+                for (unsigned int idof = 0; idof < dofs_per_cell; ++idof)
+                {
+                    double shapes = dof_handler.get_fe(cell->active_fe_index()).shape_value(idof, {u,v});
+                    const auto shape_der = dof_handler.get_fe(cell->active_fe_index()).shape_grad(idof, {u,v});
+                    const auto shape_der2 = dof_handler.get_fe(cell->active_fe_index()).shape_grad_grad(idof, {u,v});
+
+                    
+                    sol += shapes * solution[local_dof_indices[idof]];
+                    
+                    switch (idof % 3) {
+                        case 0:
+                            spt[0] += shapes * vertices[local_dof_indices[idof]];
+                            disp[0] += shapes * solution[local_dof_indices[idof]];
+                            disp_der[0][0] += shape_der[0] * solution[local_dof_indices[idof]];
+                            disp_der[1][0] += shape_der[1] * solution[local_dof_indices[idof]];
+                            disp_der2[0][0][0] += shape_der2[0][0] * solution[local_dof_indices[idof]];
+                            disp_der2[0][1][0] += shape_der2[0][1] * solution[local_dof_indices[idof]];
+                            disp_der2[1][0][0] += shape_der2[1][0] * solution[local_dof_indices[idof]];
+                            disp_der2[1][1][0] += shape_der2[1][1] * solution[local_dof_indices[idof]];
+                            
+                            JJ[0][0] += shape_der[0] * vertices[local_dof_indices[idof]];
+                            JJ[1][0] += shape_der[1] * vertices[local_dof_indices[idof]];
+                            J_der[0][0][0] += shape_der2[0][0] * vertices[local_dof_indices[idof]];
+                            J_der[0][1][0] += shape_der2[0][1] * vertices[local_dof_indices[idof]];
+                            J_der[1][0][0] += shape_der2[1][0] * vertices[local_dof_indices[idof]];
+                            J_der[1][1][0] += shape_der2[1][1] * vertices[local_dof_indices[idof]];
+                           
+                            break;
+                        case 1:
+                            spt[1] += shapes * vertices[local_dof_indices[idof]];
+                            disp[1] += shapes * solution[local_dof_indices[idof]];
+                            disp_der[0][1] += shape_der[0] * solution[local_dof_indices[idof]];
+                            disp_der[1][1] += shape_der[1] * solution[local_dof_indices[idof]];
+                            disp_der2[0][0][1] += shape_der2[0][0] * solution[local_dof_indices[idof]];
+                            disp_der2[0][1][1] += shape_der2[0][1] * solution[local_dof_indices[idof]];
+                            disp_der2[1][0][1] += shape_der2[1][0] * solution[local_dof_indices[idof]];
+                            disp_der2[1][1][1] += shape_der2[1][1] * solution[local_dof_indices[idof]];
+                            
+                            JJ[0][1] += shape_der[0] * vertices[local_dof_indices[idof]];
+                            JJ[1][1] += shape_der[1] * vertices[local_dof_indices[idof]];
+                            J_der[0][0][1] += shape_der2[0][0] * vertices[local_dof_indices[idof]];
+                            J_der[0][1][1] += shape_der2[0][1] * vertices[local_dof_indices[idof]];
+                            J_der[1][0][1] += shape_der2[1][0] * vertices[local_dof_indices[idof]];
+                            J_der[1][1][1] += shape_der2[1][1] * vertices[local_dof_indices[idof]];
+                        
+                            break;
+                        case 2:
+                            spt[2] += shapes * vertices[local_dof_indices[idof]];
+                            disp[2] += shapes * solution[local_dof_indices[idof]];
+                            disp_der[0][2] += shape_der[0] * solution[local_dof_indices[idof]];
+                            disp_der[1][2] += shape_der[1] * solution[local_dof_indices[idof]];
+                            disp_der2[0][0][2] += shape_der2[0][0] * solution[local_dof_indices[idof]];
+                            disp_der2[0][1][2] += shape_der2[0][1] * solution[local_dof_indices[idof]];
+                            disp_der2[1][0][2] += shape_der2[1][0] * solution[local_dof_indices[idof]];
+                            disp_der2[1][1][2] += shape_der2[1][1] * solution[local_dof_indices[idof]];
+                            
+                            JJ[0][2] += shape_der[0] * vertices[local_dof_indices[idof]];
+                            JJ[1][2] += shape_der[1] * vertices[local_dof_indices[idof]];
+                            J_der[0][0][2] += shape_der2[0][0] * vertices[local_dof_indices[idof]];
+                            J_der[0][1][2] += shape_der2[0][1] * vertices[local_dof_indices[idof]];
+                            J_der[1][0][2] += shape_der2[1][0] * vertices[local_dof_indices[idof]];
+                            J_der[1][1][2] += shape_der2[1][1] * vertices[local_dof_indices[idof]];
+                            
+                            break;
+                    }
+                }
+                double p = 0;
+                if (potential.size() != 0){
+                    for (unsigned int jdof = 0; jdof < dofs_per_cell/3; ++jdof) {
+                        double shapes = dof_handler.get_fe(cell->active_fe_index()).shape_value(jdof*3, {u,v});
+                        p += shapes * potential[local_dof_indices[jdof*3]/3];
+                    }
+                }
+                                
+                JJ[2] = cross_product_3d(JJ[0],JJ[1]);
+                double detJ = JJ[2].norm();
+                JJ[2] = JJ[2]/detJ;
+                
+                // covariant metric tensor
+                Tensor<2,2> am_cov = metric_covariant(JJ);
+                // contravariant metric tensor
+                Tensor<2,2> am_contra = metric_contravariant(am_cov);
+                // H tensor
+                Tensor<4,2> H_tensor;
+                constitutive_fourth_tensors(H_tensor, am_contra, possions);
+                
+                Tensor<2,2> membrane_strain,bending_strain;
+                
+                for (unsigned int ii = 0; ii < 2; ++ii) {
+                    for (unsigned int jj = 0; jj < 2; ++jj) {
+                        membrane_strain[ii][jj] += 0.5 * scalar_product(JJ[ii], disp_der[jj])+scalar_product(JJ[jj], disp_der[ii]);
+                        bending_strain[ii][jj] += -scalar_product(disp_der2[ii][jj], JJ[2]) + (scalar_product(disp_der[0], cross_product_3d(J_der[ii][jj], JJ[1])) +  scalar_product(disp_der[1], cross_product_3d(JJ[0], J_der[ii][jj])))/detJ + scalar_product(JJ[2], J_der[ii][jj]) * (scalar_product(disp_der[0], cross_product_3d(JJ[1], JJ[2])) + scalar_product( disp_der[1], cross_product_3d(JJ[2], JJ[0])))/detJ;
+                    }
+                }
+                
+                Tensor<2, 2> hn,hm;
+                double c1 = youngs*thickness/ (1. - possions*possions),
+                c2 = youngs*thickness*thickness*thickness/(12. * (1. - possions*possions));
+                for(unsigned int ii = 0; ii < 2 ; ++ii)
+                for(unsigned int jj = 0; jj < 2 ; ++jj)
+                for(unsigned int kk = 0; kk < 2 ; ++kk)
+                for(unsigned int ll = 0; ll < 2 ; ++ll)
+                for (unsigned int id = 0; id < 3; ++id) {
+                    hn[ii][jj] += c1 * H_tensor[ii][jj][kk][ll] * membrane_strain[ll][kk];
+                    hm[ii][jj] += c2 * H_tensor[ii][jj][kk][ll] * bending_strain[ll][kk];
+                }
+                
+                double sn = 0,sm = 0;
+                for(unsigned int ii = 0; ii < 2 ; ++ii){
+                    for(unsigned int jj = 0; jj < 2 ; ++jj)
+                    {
+                        sn += membrane_strain[ii][jj] * hn[jj][ii];
+                        sm += bending_strain[ii][jj] * hm[jj][ii];
+
+                    }
+                }
+                
+                double coordsdata [3] = {spt[0],spt[1],spt[2]};
+
+                points->InsertPoint(sample_offset+count, coordsdata);
+                                
+                function->InsertComponent(sample_offset+count, 0, disp[0]);
+                function->InsertComponent(sample_offset+count, 1, disp[1]);
+                function->InsertComponent(sample_offset+count, 2, disp[2]);
+                
+                energy_n->InsertComponent(sample_offset+count, 0, sn);
+                energy_m->InsertComponent(sample_offset+count, 0, sm);
+
+                if (potential.size() != 0)
+                    function_2->InsertComponent(sample_offset+count, 0, p);
+                ++count;
+            }
+        }
+    }
+    uint sampleindex = 0;
+    //loop over elements
+    for(int e = 0; e < numElem; ++e){
+        for (unsigned int t = 0 ; t < seg_n; ++t){
+            for (unsigned int s = 0; s < seg_n; ++s){
+                vtkSmartPointer<vtkCell> cell = vtkQuad::New();
+                cell -> GetPointIds() -> SetId(0, sampleindex + t * ngridpts + s);
+                cell -> GetPointIds() -> SetId(1, sampleindex + t * ngridpts + s + 1);
+                cell -> GetPointIds() -> SetId(2, sampleindex + (t + 1) * ngridpts + s + 1 );
+                cell -> GetPointIds() -> SetId(3, sampleindex + (t + 1) * ngridpts + s);
+                grid -> InsertNextCell (cell -> GetCellType(), cell -> GetPointIds());
+            }
+        }
+        sampleindex += ngridpts * ngridpts;
+    }
+    grid -> SetPoints(points);
+    grid -> GetPointData() -> AddArray(function);
+    grid -> GetPointData() -> AddArray(energy_n);
+    grid -> GetPointData() -> AddArray(energy_m);
+
+    if (potential.size() != 0){
+        grid -> GetPointData() -> AddArray(function_2);
+    }
+    vtkSmartPointer<vtkXMLUnstructuredGridWriter> writer = vtkXMLUnstructuredGridWriter::New();
+    writer -> SetFileName(filename.c_str());
+    writer -> SetInputData(grid);
+    if (! writer -> Write()) {
+        std::cout<<" Cannot write displacement vtu file! ";
+    }
+}
 
 
 
@@ -884,9 +998,9 @@ private:
     unsigned int total_q_points;
     const double tolerance = 1e-9;
     
-    const double youngs = 1e7;
-    const double possions = 0.;
-    const double thickness = 1.;
+    const double youngs = 5e8;
+    const double possions = 0.4;
+    const double thickness = 0.001;
     
     const unsigned int max_newton_step = 20;
     const unsigned int max_load_step = 100;
@@ -928,9 +1042,13 @@ void Nonlinear_shell<dim, spacedim> ::run()
     setup_system();
     bool first_load_step;
     for (unsigned int step = 0; step < max_load_step; ++step) {
-       f_load = 10 + step * 10.;
+        if(step < 5 ){
+          f_load = 500 + step * 100.;
+            solution_increment_load_step = 0;
+        }else{
+            f_load += 100;
+        }
         std::cout << "f_load = " << f_load << std::endl;
-        solution_increment_load_step = 0;
         std::cout << "step = "<< step << std::endl;
         if(step == 0){
             first_load_step = true;
@@ -939,10 +1057,10 @@ void Nonlinear_shell<dim, spacedim> ::run()
         }
         nonlinear_solver(first_load_step);
         present_solution += solution_increment_load_step;
-        perturbation_test();
+//        perturbation_test();
 
-        vtk_plot("plate_refined"+std::to_string(step)+".vtu", dof_handler, mapping_collection, vec_values, present_solution);
-        vtk_plot("plate_perturbation_refined"+std::to_string(step)+".vtu", dof_handler, mapping_collection, vec_values, present_solution + solution_increment_perturbation);
+        vtk_plot("1_airbag_"+std::to_string(step)+".vtu", dof_handler, mapping_collection, vec_values, present_solution);
+//        vtk_plot("plate_perturbation_refined"+std::to_string(step)+".vtu", dof_handler, mapping_collection, vec_values, present_solution + solution_increment_perturbation);
 
     }
 }
@@ -1044,8 +1162,8 @@ void Nonlinear_shell<dim, spacedim> ::nonlinear_solver(const bool first_load_ste
         double residual_norm = 0;
         if (newton_iteration == 0? first_newton_step = true:first_newton_step = false);
         assemble_system(first_load_step, first_newton_step);
-        assemble_boundary_force();
-        residual_vector = boundary_edge_load_rhs - internal_force_rhs;
+//        assemble_boundary_force();
+//        residual_vector += boundary_edge_load_rhs;
         make_constrains();
         
         if (first_newton_step == true) {
@@ -1065,30 +1183,30 @@ void Nonlinear_shell<dim, spacedim> ::nonlinear_solver(const bool first_load_ste
         if ((residual_error < 1e-2 ) && newton_update.l2_norm() < 1e-6) {
             std::cout << "converged.\n";
             
-            LAPACKFullMatrix<double> full_tangent(dof_handler.n_dofs());
-            full_tangent = tangent_matrix;
-            LAPACKFullMatrix<double> reduced_full_tangent = constrain_dofs_matrix<dim, spacedim>(full_tangent, fix_dof_indices);
-            LAPACKFullMatrix<double> full_tangent_lu = reduced_full_tangent;
-            FullMatrix<double>       eigenvectors;
-            Vector<double>           eigenvalues;
-            Vector<double>           eigenvec(dof_handler.n_dofs()-fix_dof_indices.size());
-            std::vector<Vector<double>>           eigenvecs(0);
-            reduced_full_tangent.compute_eigenvalues_symmetric(-200, 200, 1e-5, eigenvalues, eigenvectors);
-            
-            for(unsigned int ie = 0; ie < eigenvalues.size(); ++ie){
-                std::cout << eigenvalues[ie] << std::endl;
-                for (unsigned int idof = 0; idof < dof_handler.n_dofs()-fix_dof_indices.size(); ++idof) {
-                    eigenvec[idof] = eigenvectors[idof][ie];
-                }
-                Vector<double> restored_eigenvec = restore_rhs_vector<dim, spacedim>(eigenvec, dof_handler.n_dofs(), fix_dof_indices);
-                eigenvecs.push_back(restored_eigenvec);
-                if (eigenvalues[ie] <= 0) {
-                    vtk_plot("sphere_eigen_"+std::to_string(eigenvalues[ie])+".vtu", dof_handler, mapping_collection, vec_values, restored_eigenvec);
-                }
-            }
-            if(eigenvecs.size() >= 1){
-                vtk_plot("sphere_eigen_1.vtu", dof_handler, mapping_collection, vec_values, eigenvecs[0]);
-            }
+//            LAPACKFullMatrix<double> full_tangent(dof_handler.n_dofs());
+//            full_tangent = tangent_matrix;
+//            LAPACKFullMatrix<double> reduced_full_tangent = constrain_dofs_matrix<dim, spacedim>(full_tangent, fix_dof_indices);
+//            LAPACKFullMatrix<double> full_tangent_lu = reduced_full_tangent;
+//            FullMatrix<double>       eigenvectors;
+//            Vector<double>           eigenvalues;
+//            Vector<double>           eigenvec(dof_handler.n_dofs()-fix_dof_indices.size());
+//            std::vector<Vector<double>>           eigenvecs(0);
+//            reduced_full_tangent.compute_eigenvalues_symmetric(-200, 200, 1e-5, eigenvalues, eigenvectors);
+//
+//            for(unsigned int ie = 0; ie < eigenvalues.size(); ++ie){
+//                std::cout << eigenvalues[ie] << std::endl;
+//                for (unsigned int idof = 0; idof < dof_handler.n_dofs()-fix_dof_indices.size(); ++idof) {
+//                    eigenvec[idof] = eigenvectors[idof][ie];
+//                }
+//                Vector<double> restored_eigenvec = restore_rhs_vector<dim, spacedim>(eigenvec, dof_handler.n_dofs(), fix_dof_indices);
+//                eigenvecs.push_back(restored_eigenvec);
+//                if (eigenvalues[ie] <= 0) {
+//                    vtk_plot("sphere_eigen_"+std::to_string(eigenvalues[ie])+".vtu", dof_handler, mapping_collection, vec_values, restored_eigenvec);
+//                }
+//            }
+//            if(eigenvecs.size() >= 1){
+//                vtk_plot("sphere_eigen_1.vtu", dof_handler, mapping_collection, vec_values, eigenvecs[0]);
+//            }
 
             
             tangent_matrix.reinit(sparsity_pattern);
@@ -1155,7 +1273,7 @@ void Nonlinear_shell<dim, spacedim>::assemble_boundary_force()
                             jxw = a_cov[0].norm() * b_fe_values.get_quadrature().weight(q_point);
                         }
                         if (i_shape%3 == 0){
-                            cell_load_rhs[i_shape] += f_load * b_fe_values.shape_value(i_shape, q_point) * jxw;
+                            cell_load_rhs[i_shape] += 100 * b_fe_values.shape_value(i_shape, q_point) * jxw;
                         }
                     }
                 }
@@ -1170,9 +1288,10 @@ void Nonlinear_shell<dim, spacedim>::assemble_boundary_force()
 template <int dim, int spacedim>
 void Nonlinear_shell<dim, spacedim>::solve()
 {
-  SolverControl            solver_control(10000, 1e-6);
+  SolverControl            solver_control(500000, 1e-4);
   SolverCG<Vector<double>> solver(solver_control);
-  PreconditionSSOR<SparseMatrix<double>> preconditioner;
+//  PreconditionSSOR<SparseMatrix<double>> preconditioner;
+    PreconditionJacobi<SparseMatrix<double>> preconditioner;
   preconditioner.initialize(tangent_matrix);
   solver.solve(tangent_matrix, newton_update, residual_vector, preconditioner);
 }
@@ -1341,9 +1460,8 @@ void Nonlinear_shell<dim, spacedim> :: assemble_system(const bool first_load_ste
             Tensor<4,dim> H_tensor =lqph[q_point].get_H_tensor();
             double memstiff = lqph[q_point].get_membrane_stiffness();
             double benstiff = lqph[q_point].get_bending_stiffness();
-
             Tensor<2, spacedim> a_cov_def = lqph[q_point].get_deformed_covariant_bases();
-//            double detJ_def = cross_product_3d(a_cov_def[0], a_cov_def[1]).norm();
+            double detJ_def = cross_product_3d(a_cov_def[0], a_cov_def[1]).norm();
             Tensor<2, dim, Tensor<1,spacedim>> da_cov_def = lqph[q_point].get_deformed_covariant_bases_deriv();
             
             for (unsigned int r_shape = 0; r_shape < dofs_per_cell; ++r_shape) {
@@ -1369,7 +1487,7 @@ void Nonlinear_shell<dim, spacedim> :: assemble_system(const bool first_load_ste
                     Tensor<2, dim> bending_strain_ds   = T_derivs.get_bending_strain_ds();
                     Tensor<2, dim> membrane_strain_drs = T_derivs.get_membrane_strain_drs();
                     Tensor<2, dim> bending_strain_drs  = T_derivs.get_bending_strain_drs();
-                    
+
                     for (unsigned int ia = 0; ia < dim; ++ia) {
                         for (unsigned int ib = 0; ib < dim; ++ib) {
                             cell_tangent_matrix[r_shape][s_shape] += ( membrane_strain_drs[ia][ib] * membrane_stress[ia][ib] + bending_strain_drs[ia][ib] * bending_stress[ia][ib]) * fe_values.JxW(q_point) ;
@@ -1381,16 +1499,16 @@ void Nonlinear_shell<dim, spacedim> :: assemble_system(const bool first_load_ste
                         }
                     }
                     // following pressure load
-                    //......
+                    cell_tangent_matrix[r_shape][s_shape] -= f_load * scalar_product(a3_t_s, u_r) * (1./detJ_ref) * fe_values.JxW(q_point);
+
                 }// loop s_shape
                 for (unsigned int ia = 0; ia < dim; ++ia) {
                     for (unsigned int ib = 0; ib < dim; ++ib) {
                         cell_internal_force_rhs[r_shape] += (membrane_strain_dr[ia][ib] * membrane_stress[ia][ib] + bending_strain_dr[ia][ib] * bending_stress[ia][ib]) * fe_values.JxW(q_point); // f^int
                     }
                 }
-                if(r_shape%3 == 2){
-                    cell_external_force_rhs[r_shape] += - 0.1 * shape_r * fe_values.JxW(q_point); // f_z = -1
-                }
+                cell_external_force_rhs[r_shape] += f_load * scalar_product(a_cov_def[2], u_r) * (detJ_def/detJ_ref) * fe_values.JxW(q_point); //  f^ext;
+
             }//loop r_shape
         }// loop over quadratures
         internal_force_rhs.add(local_dof_indices, cell_internal_force_rhs);
@@ -1399,22 +1517,30 @@ void Nonlinear_shell<dim, spacedim> :: assemble_system(const bool first_load_ste
         
         for (unsigned int ivert = 0; ivert < GeometryInfo<dim>::vertices_per_cell; ++ivert)
         {
-            if (cell->vertex(ivert)[0] == 100)
+            if (cell->vertex(ivert)[0] == 1 || cell->vertex(ivert)[0] == 0)
+            {
+                unsigned int dof_id = cell->vertex_dof_index(ivert,0, cell->active_fe_index());
+//                fix_dof_indices.push_back(dof_id);
+//                fix_dof_indices.push_back(dof_id+1);
+                fix_dof_indices.push_back(dof_id+2);
+            }
+            if (cell->vertex(ivert)[1] == 1 || cell->vertex(ivert)[1] == 0)
+            {
+                unsigned int dof_id = cell->vertex_dof_index(ivert,0, cell->active_fe_index());
+//                fix_dof_indices.push_back(dof_id);
+//                fix_dof_indices.push_back(dof_id+1);
+                fix_dof_indices.push_back(dof_id+2);
+            }
+            if (cell->vertex(ivert)[0] == 0 && cell->vertex(ivert)[1] == 0)
             {
                 unsigned int dof_id = cell->vertex_dof_index(ivert,0, cell->active_fe_index());
                 fix_dof_indices.push_back(dof_id);
                 fix_dof_indices.push_back(dof_id+1);
                 fix_dof_indices.push_back(dof_id+2);
             }
-            if (cell->vertex(ivert)[0] == 0)
-            {
-                unsigned int dof_id = cell->vertex_dof_index(ivert,0, cell->active_fe_index());
-                fix_dof_indices.push_back(dof_id+1);
-                fix_dof_indices.push_back(dof_id+2);
-            }
         }
     }//loop over cells
-//    residual_vector = external_force_rhs - internal_force_rhs;
+    residual_vector = external_force_rhs - internal_force_rhs;
     store_material_data = false;
     restore_material_data = false;
 }
@@ -1508,14 +1634,15 @@ Triangulation<dim,spacedim> set_mesh( std::string type )
 {
     Triangulation<dim,spacedim> mesh;
     if (type == "plate"){
-        GridGenerator::hyper_cube<dim,spacedim>(mesh,0,100);
-        mesh.refine_global(2);
+        GridGenerator::hyper_cube<dim,spacedim>(mesh,0,1);
+        mesh.refine_global(4);
     }
     std::cout << "   Number of active cells: " << mesh.n_active_cells()
     << std::endl
     << "   Total number of cells: " << mesh.n_cells()
     << std::endl;
-    
+    std::ofstream output_file("airbag_mesh.vtu");
+    GridOut().write_vtu (mesh, output_file);
     return mesh;
 }
 
