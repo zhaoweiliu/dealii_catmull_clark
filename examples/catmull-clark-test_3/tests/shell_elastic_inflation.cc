@@ -70,6 +70,8 @@
 #include <iostream>
 #include <complex>
 
+#include "hlib.hh"
+
 #include "Catmull_Clark_Data.hpp"
 #include "CatmullClark_subd.hpp"
 #include "polynomials_Catmull_Clark.hpp"
@@ -390,6 +392,7 @@ void vtk_plot(const std::string &filename, const hp::DoFHandler<2, 3> &dof_handl
     vtkSmartPointer<vtkDoubleArray> function_2 = vtkDoubleArray::New();
     vtkSmartPointer<vtkDoubleArray> energy_n = vtkDoubleArray::New();
     vtkSmartPointer<vtkDoubleArray> energy_m = vtkDoubleArray::New();
+    vtkSmartPointer<vtkDoubleArray> energy_total = vtkDoubleArray::New();
 
 
     function->SetNumberOfComponents(3);
@@ -411,6 +414,10 @@ void vtk_plot(const std::string &filename, const hp::DoFHandler<2, 3> &dof_handl
     energy_m->SetNumberOfComponents(1);
     energy_m->SetName("energy_m");
     energy_m->SetComponentName(0, "value");
+    
+    energy_total->SetNumberOfComponents(1);
+    energy_total->SetName("energy_total");
+    energy_total->SetComponentName(0, "value");
     
     const double youngs = 5e8;
     const double possions = 0.4;
@@ -1002,7 +1009,7 @@ private:
     const double possions = 0.4;
     const double thickness = 0.001;
     
-    const unsigned int max_newton_step = 20;
+    const unsigned int max_newton_step = 10;
     const unsigned int max_load_step = 100;
     
     bool store_material_data = false;
@@ -1043,10 +1050,10 @@ void Nonlinear_shell<dim, spacedim> ::run()
     bool first_load_step;
     for (unsigned int step = 0; step < max_load_step; ++step) {
         if(step < 5 ){
-          f_load = 500 + step * 100.;
+          f_load = 200 + step * 200;
             solution_increment_load_step = 0;
         }else{
-            f_load += 100;
+            f_load += 200;
         }
         std::cout << "f_load = " << f_load << std::endl;
         std::cout << "step = "<< step << std::endl;
@@ -1059,7 +1066,7 @@ void Nonlinear_shell<dim, spacedim> ::run()
         present_solution += solution_increment_load_step;
 //        perturbation_test();
 
-        vtk_plot("1_airbag_"+std::to_string(step)+".vtu", dof_handler, mapping_collection, vec_values, present_solution);
+        vtk_plot("2_airbag_"+std::to_string(step)+".vtu", dof_handler, mapping_collection, vec_values, present_solution);
 //        vtk_plot("plate_perturbation_refined"+std::to_string(step)+".vtu", dof_handler, mapping_collection, vec_values, present_solution + solution_increment_perturbation);
 
     }
@@ -1123,7 +1130,7 @@ void Nonlinear_shell<dim, spacedim>::perturbation_test(){
         if (newton_iteration != 0) {
             std::cout << "residual_error = " << residual_error * 100 << "%" <<std::endl;
         }
-        if ((residual_error < 1e-2 ) && newton_update.l2_norm() < 1e-6) {
+        if ((residual_error < 1e-2 ) && newton_update.l2_norm() < 1e-9) {
             if(restore_force == true){
                 std::cout << "converged.\n";
                 
@@ -1180,7 +1187,7 @@ void Nonlinear_shell<dim, spacedim> ::nonlinear_solver(const bool first_load_ste
         if (newton_iteration != 0) {
             std::cout << "residual_error = " << residual_error * 100 << "%" <<std::endl;
         }
-        if ((residual_error < 1e-2 ) && newton_update.l2_norm() < 1e-6) {
+        if ((residual_error < 1e-2 ) && newton_update.l2_norm() < 1e-9) {
             std::cout << "converged.\n";
             
 //            LAPACKFullMatrix<double> full_tangent(dof_handler.n_dofs());
@@ -1288,7 +1295,7 @@ void Nonlinear_shell<dim, spacedim>::assemble_boundary_force()
 template <int dim, int spacedim>
 void Nonlinear_shell<dim, spacedim>::solve()
 {
-  SolverControl            solver_control(500000, 1e-4);
+  SolverControl            solver_control(50000, 1e-8);
   SolverCG<Vector<double>> solver(solver_control);
 //  PreconditionSSOR<SparseMatrix<double>> preconditioner;
     PreconditionJacobi<SparseMatrix<double>> preconditioner;
@@ -1538,6 +1545,13 @@ void Nonlinear_shell<dim, spacedim> :: assemble_system(const bool first_load_ste
                 fix_dof_indices.push_back(dof_id+1);
                 fix_dof_indices.push_back(dof_id+2);
             }
+            if (cell->vertex(ivert)[0] == 0 && cell->vertex(ivert)[1] == 1)
+            {
+                unsigned int dof_id = cell->vertex_dof_index(ivert,0, cell->active_fe_index());
+                fix_dof_indices.push_back(dof_id);
+//                fix_dof_indices.push_back(dof_id+1);
+                fix_dof_indices.push_back(dof_id+2);
+            }
         }
     }//loop over cells
     residual_vector = external_force_rhs - internal_force_rhs;
@@ -1545,8 +1559,8 @@ void Nonlinear_shell<dim, spacedim> :: assemble_system(const bool first_load_ste
     restore_material_data = false;
 }
 
-
-
+  
+    
 template <int dim, int spacedim>
 void Nonlinear_shell<dim, spacedim>::assemble_boundary_mass_matrix_and_rhs()
 {
@@ -1635,7 +1649,7 @@ Triangulation<dim,spacedim> set_mesh( std::string type )
     Triangulation<dim,spacedim> mesh;
     if (type == "plate"){
         GridGenerator::hyper_cube<dim,spacedim>(mesh,0,1);
-        mesh.refine_global(4);
+        mesh.refine_global(5);
     }
     std::cout << "   Number of active cells: " << mesh.n_active_cells()
     << std::endl

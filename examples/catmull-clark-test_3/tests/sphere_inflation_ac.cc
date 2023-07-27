@@ -510,6 +510,7 @@ material_neo_hookean<dim, spacedim> :: get_integral_tensors()
         da_cov_def[0][1] += u_der2[0][1];
         da_cov_def[1][0] += u_der2[1][0];
         da_cov_def[1][1] += u_der2[1][1];
+        double a3_norm_ref = cross_product_3d(a_cov_ref[0], a_cov_ref[1]).norm();
         double a3_norm_def = cross_product_3d(a_cov_def[0], a_cov_def[1]).norm();
         auto a3_def =  cross_product_3d(a_cov_def[0], a_cov_def[1])/a3_norm_def;
         double l3 = a3_norm_ref/a3_norm_def;
@@ -756,6 +757,7 @@ material_mooney_rivlin<dim, spacedim> :: get_integral_tensors()
         da_cov_def[0][1] += u_der2[0][1];
         da_cov_def[1][0] += u_der2[1][0];
         da_cov_def[1][1] += u_der2[1][1];
+        double a3_norm_ref = cross_product_3d(a_cov_ref[0], a_cov_ref[1]).norm();
         double a3_norm_def = cross_product_3d(a_cov_def[0], a_cov_def[1]).norm();
         auto a3_def =  cross_product_3d(a_cov_def[0], a_cov_def[1])/a3_norm_def;
         double l3 = a3_norm_ref/a3_norm_def;
@@ -1069,8 +1071,8 @@ private:
     unsigned int total_q_points;
     const double tolerance = 1e-6;
     const double thickness = 0.1;
-//    const double mu = 4.225e5, c_1 = 0.4375*mu, c_2 = 0.0625*mu;
-    const double mu = 4.225e5, c_1 = 0.5*mu, c_2 = 0.;
+    const double mu = 4.225e5, c_1 = 0.4375*mu, c_2 = 0.0625*mu;
+//    const double mu = 4.225e5, c_1 = 0.5*mu, c_2 = 0.;
 
 //    const double mu = 4.225e5;
     const QGauss<dim-1> Qthickness = QGauss<dim-1>(2);
@@ -1563,15 +1565,15 @@ void Nonlinear_shell<dim, spacedim>::solve(const bool first_load_step)
         auto solution_1 = solution_newton_update;
         auto solution_2 = solution_newton_update;
         
-//        solver.solve(tangent_matrix, solution_1, external_force_rhs, preconditioner);
-//        solver.solve(tangent_matrix, solution_2, residual_vector, preconditioner);
+        solver.solve(tangent_matrix, solution_1, external_force_rhs, preconditioner);
+        solver.solve(tangent_matrix, solution_2, residual_vector, preconditioner);
         
 //        pressure_newton_update = (-VTW(a_vector, solution_2) - A)/(b + VTW(a_vector, solution_1));
 //        solution_newton_update = pressure_newton_update * solution_1 + solution_2;
-        SparseDirectUMFPACK K_direct;
-        K_direct.initialize(tangent_matrix);
-        K_direct.vmult(solution_1, external_force_rhs);
-        K_direct.vmult(solution_2, residual_vector);
+//        SparseDirectUMFPACK K_direct;
+//        K_direct.initialize(tangent_matrix);
+//        K_direct.vmult(solution_1, external_force_rhs);
+//        K_direct.vmult(solution_2, residual_vector);
 
 //        auto solution_1 = op_k_inv * external_force_rhs;
 //        auto solution_2 = op_k_inv * residual_vector;
@@ -1619,7 +1621,7 @@ void Nonlinear_shell<dim, spacedim> ::run()
 //        pressure_increment_load_step = 0.1;
         std::cout << "pressure_load = " << lambda * reference_pressure << "n/m2" <<std::endl;
         
-        vtk_plot("arclength_sphere_NH= "+std::to_string(step)+".vtu", dof_handler, mapping_collection, vec_values, present_solution, Vector<double>(), lambda * reference_pressure);
+        vtk_plot("arclength_sphere_MR= "+std::to_string(step)+".vtu", dof_handler, mapping_collection, vec_values, present_solution, Vector<double>(), lambda * reference_pressure);
         // initial guess for next load step
 //        solution_increment_load_step = solution_increment_load_step;
 //        pressure_increment_load_step = pressure_increment_load_step;
@@ -1659,7 +1661,7 @@ void Nonlinear_shell<dim, spacedim> ::nonlinear_solver(const bool first_load_ste
             std::cout << "residual_error = " << residual_error * 100 << "%" <<std::endl;
         }
 
-        if ((residual_error < 1e-2 ) && solution_newton_update.l2_norm() < 1e-6) {
+        if ((residual_error < 1e-4 ) && solution_newton_update.l2_norm() < 1e-6) {
             std::cout << "converged.\n";
 //            LAPACKFullMatrix<double> full_tangent_lu(dof_handler.n_dofs());
 //            full_tangent_lu = tangent_matrix;

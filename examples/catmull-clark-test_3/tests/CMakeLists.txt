@@ -6,6 +6,16 @@ SET(VTK_DIR "/usr/local/include/vtk-8.2" CACHE PATH "VTK directory override" FOR
 file(GLOB LIBRARIES "/Users/zhaoweiliu/Documents/codes/VTK-8.2.0/build/lib/*.dylib")
 message("LIBRARIES = ${LIBRARIES}")
 
+#hlibpro directory
+set(HLIBPRODIR "NOT-DEFINED" CACHE PATH "/opt")
+if(DEFINED HLIBPRODIR)
+    include_directories(${HLIBPRODIR}/include)
+#    link_directories(${HLIBPRODIR}/lib)
+    file(GLOB HLIB "/Users/zhaoweiliu/Documents/codes/hlibpro-2.9/lib/*dylib")
+else()
+    message(FATAL_ERROR "HLibPro directory not defined")
+endif()
+
 #FIND_PACKAGE(VTK REQUIRED)
 INCLUDE_DIRECTORIES(${VTK_DIR})
 
@@ -94,3 +104,15 @@ TARGET_LINK_LIBRARIES(shell_elastic_nonlinear_tension addition_lib ${LIBRARIES})
 ADD_EXECUTABLE(half_torus half_torus.cc)
 DEAL_II_SETUP_TARGET(half_torus)
 TARGET_LINK_LIBRARIES(half_torus addition_lib ${LIBRARIES})
+
+ADD_EXECUTABLE(elastic_plate elastic_plate.cc)
+DEAL_II_SETUP_TARGET(elastic_plate)
+TARGET_LINK_LIBRARIES(elastic_plate addition_lib ${LIBRARIES})
+
+ADD_EXECUTABLE(mag_shell_nonlinear mag_shell_nonlinear.cc)
+DEAL_II_SETUP_TARGET(mag_shell_nonlinear)
+TARGET_LINK_LIBRARIES(mag_shell_nonlinear addition_lib ${LIBRARIES})
+
+ADD_EXECUTABLE(nonlinear_elastic_shell_validation nonlinear_elastic_shell_validation.cc)
+DEAL_II_SETUP_TARGET(nonlinear_elastic_shell_validation)
+TARGET_LINK_LIBRARIES(nonlinear_elastic_shell_validation addition_lib ${LIBRARIES})

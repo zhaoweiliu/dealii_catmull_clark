@@ -1323,7 +1323,7 @@ Triangulation<dim,spacedim> set_mesh( std::string type )
         mesh_t.refine_global(2);
         std::ofstream torus_output("torus1.msh");
         GridOut().write_msh (mesh_t, torus_output);
-        std::string mfile = "torus1_im.msh";
+        std::string mfile = "torus1.msh";
         GridIn<2,3> grid_in;
         grid_in.attach_triangulation(mesh);
         std::ifstream file(mfile.c_str());
@@ -1743,7 +1743,7 @@ void Nonlinear_shell<dim, spacedim>::make_constrains(const unsigned int newton_i
 template <int dim, int spacedim>
 void Nonlinear_shell<dim, spacedim>::solve(const bool first_load_step)
 {
-  SolverControl            solver_control(20000, 1e-8);
+  SolverControl            solver_control(50000, 1e-9);
   SolverCG<Vector<double>> solver(solver_control);
 //  SolverGMRES<Vector<double>> solver(solver_control);
 //  PreconditionSSOR<SparseMatrix<double>> preconditioner;
@@ -1761,7 +1761,7 @@ void Nonlinear_shell<dim, spacedim>::solve(const bool first_load_step)
         
 //        solver.solve(tangent_matrix, solution_1, external_force_rhs, preconditioner);
 //        solver.solve(tangent_matrix, solution_2, residual_vector, preconditioner);
-//
+////
 //        pressure_newton_update = (-VTW(a_vector, solution_2) - A)/(b + VTW(a_vector, solution_1));
 //        solution_newton_update = pressure_newton_update * solution_1 + solution_2;
         
@@ -1792,13 +1792,13 @@ void Nonlinear_shell<dim, spacedim> ::run()
         }else{
             first_load_step = false;
             if (step == 1) {
-                pressure_increment_load_step = 0.1;
+                pressure_increment_load_step = 0.2;
             }
         }
         nonlinear_solver(first_load_step);
         double l1,l2;
         if(step == 0){
-            radius = std::sqrt(psi_2 * VTV(solution_increment_load_step) + psi_1 * lambda * lambda * reference_pressure_VTV) * 2;
+            radius = std::sqrt(psi_2 * VTV(solution_increment_load_step) + psi_1 * lambda * lambda * reference_pressure_VTV);
             l2 = std::sqrt(psi_2 * VTV(solution_increment_load_step));
             l1 = std::sqrt(psi_1 * lambda * lambda * reference_pressure_VTV);
         }
@@ -1814,9 +1814,9 @@ void Nonlinear_shell<dim, spacedim> ::run()
         present_solution += solution_increment_load_step;
         lambda += pressure_increment_load_step;
 //        pressure_increment_load_step = 0.1;
-        if (bifurcation == true && step < 16 ) {
-            solution_increment_load_step = bifurcation_disp;
-        }
+//        if (bifurcation == true && step < 16 ) {
+//            solution_increment_load_step = bifurcation_disp;
+//        }
         std::cout << "pressure_load = " << lambda * reference_pressure << "n/m2" <<std::endl;
         
         // calculate area and volume
