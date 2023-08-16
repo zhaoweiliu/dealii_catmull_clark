@@ -898,7 +898,7 @@ private:
     const double mu_0 = 1;
 
     const unsigned int max_newton_step = 20;
-    const unsigned int max_load_step = 21;
+    const unsigned int max_load_step = 25;
     
     bool store_material_data = false;
     bool restore_material_data = false;
@@ -941,10 +941,13 @@ void Nonlinear_shell<dim, spacedim> ::run()
     residual_mag[2] = 0.0;
     double mag = 0.;
     double theta = 0.;
-    f_load = 2000.;
+//    f_load = 200.;
     for (unsigned int step = 0; step < max_load_step; ++step) {
 //       f_load = 0.1 + step * 0.1;
-        if(step > 0 ){
+        if(step < 5 ){
+            f_load = 400 + step * 400;
+        }else
+        {
             mag += 1;
             applied_mag[0] =0.;
             applied_mag[1] =0.;
@@ -1139,7 +1142,7 @@ void Nonlinear_shell<dim, spacedim>::make_constrains()
     for (unsigned int idof = 0; idof <fix_dof_indices.size(); ++idof) {
         for (unsigned int jdof = 0; jdof <dof_handler.n_dofs(); ++jdof) {
             if (fix_dof_indices[idof] == jdof){
-                tangent_matrix.set(fix_dof_indices[idof], fix_dof_indices[idof], 1);
+                tangent_matrix.set(fix_dof_indices[idof], fix_dof_indices[idof], 1e20);
             }
             else
             {
@@ -1391,7 +1394,7 @@ void Nonlinear_shell<dim, spacedim> :: assemble_system(const bool first_load_ste
                 fix_dof_indices.push_back(dof_id+1);
                 fix_dof_indices.push_back(dof_id+2);
             }
-            if (cell->vertex(ivert)[0] == 25.2e-3/40. )
+            if (cell->vertex(ivert)[0] == 25.2e-3/20. )
             {
                 unsigned int dof_id = cell->vertex_dof_index(ivert,0, cell->active_fe_index());
 //                fix_dof_indices.push_back(dof_id);
@@ -1531,7 +1534,7 @@ Triangulation<dim,spacedim> set_mesh( std::string type )
     if (type == "plate"){
 //        GridGenerator::hyper_cube<dim,spacedim>(mesh,0,25.2e-3);
         GridGenerator::subdivided_hyper_rectangle(mesh,{20,20}, {0,0}, {25.2e-3,25.2e-3});
-        mesh.refine_global(1);
+//        mesh.refine_global(1);
     }
     std::cout << "   Number of active cells: " << mesh.n_active_cells()
     << std::endl
