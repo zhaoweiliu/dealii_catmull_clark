@@ -546,7 +546,6 @@ Tensor<2,dim> material_neo_hookean<dim, spacedim> :: get_stress(const double C_3
     for (unsigned int ia = 0; ia < dim; ++ia)
         for (unsigned int ib = 0; ib < dim; ++ib)
             tau[ia][ib] += mu * (gm_contra_ref[ia][ib] - C_33 * gm_contra_def[ia][ib]);
-    
     return tau;
 }
 
@@ -742,6 +741,9 @@ private:
     
     Tensor<2, dim, Tensor<1,spacedim>> u_der2;
     
+    const double beta = 1.;
+    const double elec_potential = 1;
+    
 };
 
 
@@ -772,7 +774,8 @@ Tensor<2,dim> material_mooney_rivlin<dim,spacedim> :: get_tau(const double C_33,
     }
     for (unsigned int ia = 0; ia < dim; ++ia){
         for (unsigned int ib = 0; ib < dim; ++ib){
-            tau[ia][ib] += 2 * c_1 * gm_contra_ref[ia][ib] + 2 * c_2 * (trace_C * gm_contra_ref[ia][ib] - T1[ia][ib]) - 2 * (c_1 + c_2 * (trace_C - C_33)) * C_33 * gm_contra_def[ia][ib] ;
+//            tau[ia][ib] += 2 * c_1 * gm_contra_ref[ia][ib] + 2 * c_2 * (trace_C * gm_contra_ref[ia][ib] - T1[ia][ib]) - 2 * (c_1 + c_2 * (trace_C - C_33)) * C_33 * gm_contra_def[ia][ib] ;
+            tau[ia][ib] += 2 * c_1 * gm_contra_ref[ia][ib] + 2 * c_2 * (trace_C * gm_contra_ref[ia][ib] - T1[ia][ib]) - 2 * (c_1 + c_2 * (trace_C - C_33)) * C_33 * gm_contra_def[ia][ib]  - elec_potential*elec_potential/(2 *beta* thickness * thickness * C_33) * gm_contra_def[ia][ib] ;
         }
     }
     
@@ -795,6 +798,7 @@ Tensor<4, dim> material_mooney_rivlin<dim,spacedim> ::get_elastic_tensor(const d
     }
     trace_C += C_33;
     
+    Tensor<4, dim> Cabcd;
     Tensor<4, dim> elastic_tensor;
     Tensor<4, dim> d2psi_d2;
     Tensor<2, dim> dpsi_d33dab;
@@ -815,7 +819,8 @@ Tensor<4, dim> material_mooney_rivlin<dim,spacedim> ::get_elastic_tensor(const d
         for (unsigned int ib = 0; ib < dim; ++ib) {
             for (unsigned int ic = 0; ic < dim; ++ic) {
                 for (unsigned int id = 0; id < dim; ++id) {
-                    elastic_tensor[ia][ib][ic][id] += 4 * d2psi_d2[ia][ib][ic][id] - 4 * dpsi_d33dab[ia][ib] * C_33 * gm_contra_def[ic][id] - 4 * dpsi_d33dab[ic][id] * C_33 * gm_contra_def[ia][ib] + 2 * dpsi_d33 * C_33 * ( 2 * gm_contra_def[ia][ib] * gm_contra_def[ic][id] + gm_contra_def[ia][ic] * gm_contra_def[ib][id] + gm_contra_def[ia][id] * gm_contra_def[ib][ic] );
+//                    elastic_tensor[ia][ib][ic][id] += 4 * d2psi_d2[ia][ib][ic][id] - 4 * dpsi_d33dab[ia][ib] * C_33 * gm_contra_def[ic][id] - 4 * dpsi_d33dab[ic][id] * C_33 * gm_contra_def[ia][ib] + 2 * dpsi_d33 * C_33 * ( 2 * gm_contra_def[ia][ib] * gm_contra_def[ic][id] + gm_contra_def[ia][ic] * gm_contra_def[ib][id] + gm_contra_def[ia][id] * gm_contra_def[ib][ic] );
+                    elastic_tensor[ia][ib][ic][id] += 4 * d2psi_d2[ia][ib][ic][id] - 4 * dpsi_d33dab[ia][ib] * C_33 * gm_contra_def[ic][id] - 4 * dpsi_d33dab[ic][id] * C_33 * gm_contra_def[ia][ib] - (2 * dpsi_d33 * C_33 + elec_potential * elec_potential / (2*beta*thickness*thickness*C_33))* ( gm_contra_def[ia][ib] * gm_contra_def[ic][id] - gm_contra_def[ia][ic] * gm_contra_def[ib][id] - gm_contra_def[ia][id] * gm_contra_def[ib][ic]) + gm_contra_def[ia][ib] * gm_contra_def[ic][id] * (6 * dpsi_d33 * C_33 - elec_potential * elec_potential / (2*beta*thickness*thickness*C_33));
                 }
             }
         }
@@ -1196,12 +1201,11 @@ private:
     const double mu = 4.225e5, c_1 = 0.4375*mu, c_2 = 0.0625*mu;
 //    const double mu = 4.225e5, c_1 = 0.4*mu, c_2 = 0.1*mu;
 //    const double mu = 4.225e5, c_1 = 0.5*mu, c_2 = 0.;
-
 //    const double mu = 4.225e5;
     const QGauss<dim-1> Qthickness = QGauss<dim-1>(2);
     const double penalty_factor = 10e30;
     const double reference_pressure = 5000;
-    const unsigned int max_load_step = 200;
+    const unsigned int max_load_step = 100;
     const unsigned int max_newton_step = 20;
     double psi_1 = 1e-9,psi_2 = 1, radius;
     bool converged = false;
@@ -1313,7 +1317,7 @@ Triangulation<dim,spacedim> set_mesh( std::string type )
     {
         Triangulation<dim,spacedim> mesh_t;
         GridGenerator::torus(mesh_t, 10, 2);
-        mesh_t.refine_global(2);
+        mesh_t.refine_global(1);
         std::ofstream torus_output("torus1.msh");
         GridOut().write_msh (mesh_t, torus_output);
         std::string mfile = "torus1.msh";
@@ -1818,7 +1822,7 @@ void Nonlinear_shell<dim, spacedim> ::run()
         std::cout << " area = "<< area << std::endl;
         std::cout << " volume = "<< volume << std::endl;
         
-        vtk_plot("torus_"+std::to_string(step)+".vtu", dof_handler, mapping_collection, vec_values, present_solution, Vector<double>(), lambda * reference_pressure,area,volume);
+        vtk_plot("torus_1_"+std::to_string(step)+".vtu", dof_handler, mapping_collection, vec_values, present_solution, Vector<double>(), lambda * reference_pressure,area,volume);
 
     }
 }
