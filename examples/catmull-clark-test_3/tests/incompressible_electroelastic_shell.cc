@@ -742,8 +742,8 @@ private:
     Tensor<2, dim, Tensor<1,spacedim>> u_der2;
     
     const double beta = 1.;
-    const double elec_potential = 1;
-    
+//    const double elec_potential = 1.5;
+    const double elec_potential = 2;
 };
 
 
@@ -775,7 +775,7 @@ Tensor<2,dim> material_mooney_rivlin<dim,spacedim> :: get_tau(const double C_33,
     for (unsigned int ia = 0; ia < dim; ++ia){
         for (unsigned int ib = 0; ib < dim; ++ib){
 //            tau[ia][ib] += 2 * c_1 * gm_contra_ref[ia][ib] + 2 * c_2 * (trace_C * gm_contra_ref[ia][ib] - T1[ia][ib]) - 2 * (c_1 + c_2 * (trace_C - C_33)) * C_33 * gm_contra_def[ia][ib] ;
-            tau[ia][ib] += 2 * c_1 * gm_contra_ref[ia][ib] + 2 * c_2 * (trace_C * gm_contra_ref[ia][ib] - T1[ia][ib]) - 2 * (c_1 + c_2 * (trace_C - C_33)) * C_33 * gm_contra_def[ia][ib]  - elec_potential*elec_potential/(2 *beta* thickness * thickness * C_33) * gm_contra_def[ia][ib] ;
+            tau[ia][ib] += 2 * c_1 * gm_contra_ref[ia][ib] + 2 * c_2 * (trace_C * gm_contra_ref[ia][ib] - T1[ia][ib]) - 2 * (c_1 + c_2 * (trace_C - C_33)) * C_33 * gm_contra_def[ia][ib]  - elec_potential * elec_potential/(2 *beta* thickness * thickness * C_33) * gm_contra_def[ia][ib] ;
         }
     }
     
@@ -1205,7 +1205,7 @@ private:
     const QGauss<dim-1> Qthickness = QGauss<dim-1>(2);
     const double penalty_factor = 10e30;
     const double reference_pressure = 5000;
-    const unsigned int max_load_step = 100;
+    const unsigned int max_load_step = 50;
     const unsigned int max_newton_step = 20;
     double psi_1 = 1e-9,psi_2 = 1, radius;
     bool converged = false;
@@ -1317,7 +1317,7 @@ Triangulation<dim,spacedim> set_mesh( std::string type )
     {
         Triangulation<dim,spacedim> mesh_t;
         GridGenerator::torus(mesh_t, 10, 2);
-        mesh_t.refine_global(1);
+        mesh_t.refine_global(2);
         std::ofstream torus_output("torus1.msh");
         GridOut().write_msh (mesh_t, torus_output);
         std::string mfile = "torus1.msh";
@@ -1748,7 +1748,11 @@ void Nonlinear_shell<dim, spacedim>::solve(const bool first_load_step)
     const auto op_k_inv = inverse_operator(op_k, solver, preconditioner);
     if (first_load_step == true) {
 //        solver.solve(tangent_matrix, solution_newton_update, residual_vector, preconditioner);
-        solution_newton_update = op_k_inv * residual_vector;
+//        solution_newton_update = op_k_inv * residual_vector;
+        SparseDirectUMFPACK K_direct;
+        K_direct.initialize(tangent_matrix);
+//        K_direct.vmult(solution_1, external_force_rhs);
+        K_direct.vmult(solution_newton_update, residual_vector);
         pressure_newton_update = 0;
     }else{
         auto solution_1 = solution_newton_update;
