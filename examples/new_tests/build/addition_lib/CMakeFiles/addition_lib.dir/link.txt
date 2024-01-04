@@ -1,0 +1,2 @@
+/usr/bin/ar qc libaddition_lib.a CMakeFiles/addition_lib.dir/source/CatmullClark_subd.cpp.o CMakeFiles/addition_lib.dir/source/Catmull_Clark_Data.cpp.o CMakeFiles/addition_lib.dir/source/FE_Catmull_Clark.cpp.o CMakeFiles/addition_lib.dir/source/MappingFEField_hp.cpp.o CMakeFiles/addition_lib.dir/source/polynomials_Catmull_Clark.cpp.o CMakeFiles/addition_lib.dir/source/polynomials_CubicBSpline.cpp.o
+/usr/bin/ranlib libaddition_lib.a

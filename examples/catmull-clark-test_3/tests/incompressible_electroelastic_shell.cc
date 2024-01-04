@@ -743,7 +743,7 @@ private:
     
     const double beta = 1.;
 //    const double elec_potential = 1.5;
-    const double elec_potential = 2;
+    const double elec_potential = 3;
 };
 
 
@@ -772,10 +772,12 @@ Tensor<2,dim> material_mooney_rivlin<dim,spacedim> :: get_tau(const double C_33,
             }
         }
     }
+    double electric_load =  elec_potential * elec_potential/(4 * beta* thickness * thickness);
     for (unsigned int ia = 0; ia < dim; ++ia){
         for (unsigned int ib = 0; ib < dim; ++ib){
 //            tau[ia][ib] += 2 * c_1 * gm_contra_ref[ia][ib] + 2 * c_2 * (trace_C * gm_contra_ref[ia][ib] - T1[ia][ib]) - 2 * (c_1 + c_2 * (trace_C - C_33)) * C_33 * gm_contra_def[ia][ib] ;
-            tau[ia][ib] += 2 * c_1 * gm_contra_ref[ia][ib] + 2 * c_2 * (trace_C * gm_contra_ref[ia][ib] - T1[ia][ib]) - 2 * (c_1 + c_2 * (trace_C - C_33)) * C_33 * gm_contra_def[ia][ib]  - elec_potential * elec_potential/(2 *beta* thickness * thickness * C_33) * gm_contra_def[ia][ib] ;
+            tau[ia][ib] += 2 * c_1 * gm_contra_ref[ia][ib] + 2 * c_2 * (trace_C * gm_contra_ref[ia][ib] - T1[ia][ib]) - 2 * (c_1 + c_2 * (trace_C - C_33) + electric_load/(C_33 * C_33)) * C_33 * gm_contra_def[ia][ib] ;
+
         }
     }
     
@@ -988,6 +990,8 @@ public:
     }
         
     void set_jxw_reference(double jxw){mjxw = jxw;}
+    
+    double get_jxw_reference(){return mjxw;}
     
     void set_reference_position( Point<spacedim> pt_ref){reference_coords = pt_ref;}
     
@@ -1317,7 +1321,7 @@ Triangulation<dim,spacedim> set_mesh( std::string type )
     {
         Triangulation<dim,spacedim> mesh_t;
         GridGenerator::torus(mesh_t, 10, 2);
-        mesh_t.refine_global(2);
+        mesh_t.refine_global(3);
         std::ofstream torus_output("torus1.msh");
         GridOut().write_msh (mesh_t, torus_output);
         std::string mfile = "torus1.msh";
@@ -1738,7 +1742,7 @@ void Nonlinear_shell<dim, spacedim>::make_constrains(const unsigned int newton_i
 template <int dim, int spacedim>
 void Nonlinear_shell<dim, spacedim>::solve(const bool first_load_step)
 {
-  SolverControl            solver_control(50000, 1e-9);
+  SolverControl            solver_control(5000, 1e-9);
   SolverCG<Vector<double>> solver(solver_control);
 //  SolverGMRES<Vector<double>> solver(solver_control);
 //  PreconditionSSOR<SparseMatrix<double>> preconditioner;
@@ -1815,18 +1819,21 @@ void Nonlinear_shell<dim, spacedim> ::run()
         std::cout << "pressure_load = " << lambda * reference_pressure << "n/m2" <<std::endl;
         
         // calculate area and volume
-        double area = 0.,volume = 0.;
+        double area = 0.,volume = 0.,volume_ref = 0;
         for (unsigned iq = 0; iq < quadrature_point_history.size(); ++iq) {
             area += quadrature_point_history[iq].get_jxw_deformed();
             Point<spacedim> qpt_ref = quadrature_point_history[iq].get_coord_reference();
             Tensor<1, spacedim> disp =quadrature_point_history[iq].get_displacement();
             Point<spacedim> qpt_def = qpt_ref + disp;
             volume += std::abs(qpt_def[1]) * quadrature_point_history[iq].get_jxw_deformed();
+            volume_ref += std::abs(qpt_ref[1]) * quadrature_point_history[iq].get_jxw_reference();
         }
         std::cout << " area = "<< area << std::endl;
         std::cout << " volume = "<< volume << std::endl;
+        std::cout << " volume ref = "<< volume_ref << std::endl;
+
         
-        vtk_plot("torus_1_"+std::to_string(step)+".vtu", dof_handler, mapping_collection, vec_values, present_solution, Vector<double>(), lambda * reference_pressure,area,volume);
+        vtk_plot("torus_1_3_"+std::to_string(step)+".vtu", dof_handler, mapping_collection, vec_values, present_solution, Vector<double>(), lambda * reference_pressure,area,volume);
 
     }
 }

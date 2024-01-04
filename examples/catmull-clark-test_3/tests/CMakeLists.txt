@@ -124,3 +124,7 @@ TARGET_LINK_LIBRARIES(mag_shell_nonlinear2 addition_lib ${LIBRARIES})
 ADD_EXECUTABLE(incompressible_electroelastic_shell incompressible_electroelastic_shell.cc)
 DEAL_II_SETUP_TARGET(incompressible_electroelastic_shell)
 TARGET_LINK_LIBRARIES(incompressible_electroelastic_shell addition_lib ${LIBRARIES})
+
+ADD_EXECUTABLE(electro_plate_inflation_ac electro_plate_inflation_ac.cc)
+DEAL_II_SETUP_TARGET(electro_plate_inflation_ac)
+TARGET_LINK_LIBRARIES(electro_plate_inflation_ac addition_lib ${LIBRARIES})

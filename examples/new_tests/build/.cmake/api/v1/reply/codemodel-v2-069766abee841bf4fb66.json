@@ -1,0 +1,137 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"childIndexes" : 
+					[
+						1,
+						2
+					],
+					"jsonFile" : "directory-.-Debug-f5ebdc15457944623624.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "2.8.12"
+					},
+					"projectIndex" : 0,
+					"source" : "."
+				},
+				{
+					"build" : "addition_lib",
+					"jsonFile" : "directory-addition_lib-Debug-3e417323f41df3b1f70a.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "2.8.12"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "addition_lib",
+					"targetIndexes" : 
+					[
+						0
+					]
+				},
+				{
+					"build" : "tests",
+					"jsonFile" : "directory-tests-Debug-b01f6abb0ab61427ef3b.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "2.8.12"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "tests",
+					"targetIndexes" : 
+					[
+						1,
+						2,
+						3,
+						4,
+						5
+					]
+				}
+			],
+			"name" : "Debug",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0,
+						1,
+						2
+					],
+					"name" : "CC_shell",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 1,
+					"id" : "addition_lib::@74dbc334e3673123e8b1",
+					"jsonFile" : "target-addition_lib-Debug-98345c5e2eefc13b65a3.json",
+					"name" : "addition_lib",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 2,
+					"id" : "elec_sphere_arclength::@a44f0ac069e85531cdee",
+					"jsonFile" : "target-elec_sphere_arclength-Debug-6af034819cdff2aee745.json",
+					"name" : "elec_sphere_arclength",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 2,
+					"id" : "electro_plate_inflation_ac::@a44f0ac069e85531cdee",
+					"jsonFile" : "target-electro_plate_inflation_ac-Debug-a532c40cc34fe764ec3c.json",
+					"name" : "electro_plate_inflation_ac",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 2,
+					"id" : "electroelastic_torus::@a44f0ac069e85531cdee",
+					"jsonFile" : "target-electroelastic_torus-Debug-830d5fae1e9d784a1066.json",
+					"name" : "electroelastic_torus",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 2,
+					"id" : "electroelastic_torus_phi::@a44f0ac069e85531cdee",
+					"jsonFile" : "target-electroelastic_torus_phi-Debug-2120f86df142314dd349.json",
+					"name" : "electroelastic_torus_phi",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 2,
+					"id" : "incompressible_electroelastic_shell::@a44f0ac069e85531cdee",
+					"jsonFile" : "target-incompressible_electroelastic_shell-Debug-a5b27ab8ec6d8ec844c0.json",
+					"name" : "incompressible_electroelastic_shell",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "/Users/zhaoweiliu/Documents/codes/new_dealii/dealii/examples/new_tests/build",
+		"source" : "/Users/zhaoweiliu/Documents/codes/new_dealii/dealii/examples/new_tests"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 6
+	}
+}

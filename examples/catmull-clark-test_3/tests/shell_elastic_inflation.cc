@@ -70,8 +70,6 @@
 #include <iostream>
 #include <complex>
 
-#include "hlib.hh"
-
 #include "Catmull_Clark_Data.hpp"
 #include "CatmullClark_subd.hpp"
 #include "polynomials_Catmull_Clark.hpp"
