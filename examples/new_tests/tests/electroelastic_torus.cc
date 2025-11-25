@@ -823,7 +823,7 @@ private:
     SparsityPattern      sparsity_pattern;
     AffineConstraints<double> constraints;
     std::vector<PointHistory_MR<dim,spacedim>>  quadrature_point_history;
-    std::string material_type = "neo_hookean";
+    std::string material_type = "MR";
     SparseMatrix<double> tangent_matrix;
     SparseMatrix<double> boundary_mass_matrix;
     Vector<double> solution_newton_update;
@@ -859,7 +859,7 @@ private:
     const QGauss<dim-1> Qthickness = QGauss<dim-1>(2);
     const double penalty_factor = 10e30;
     const double reference_pressure = 50;
-    const unsigned int max_load_step = 31;
+    const unsigned int max_load_step = 51;
     const unsigned int max_newton_step = 20;
     double psi_1 = 1e-7,psi_2 = 1, radius;
     bool converged = false;
@@ -970,7 +970,7 @@ Triangulation<dim,spacedim> set_mesh( std::string type )
     {
         Triangulation<dim,spacedim> mesh_t;
         GridGenerator::torus(mesh_t, 10, 2);
-        mesh_t.refine_global(3);
+        mesh_t.refine_global(2);
         std::ofstream torus_output("torus1.msh");
         GridOut().write_msh (mesh_t, torus_output);
         std::string mfile = "torus1.msh";
@@ -1261,6 +1261,8 @@ void Nonlinear_shell<dim, spacedim> :: assemble_system(const bool first_load_ste
     // Residual vector = f^int - lambda * f^ext
     residual_vector =  (lambda + pressure_increment_load_step) * external_force_rhs - internal_force_rhs;
     a_vector = 2 * psi_2 * solution_increment_load_step;
+    std::cout << "psi_1 = " << psi_1 << std::endl;
+    std::cout << "pressure_increment_load_step = " << pressure_increment_load_step << std::endl;
     b = 2 * psi_1 * pressure_increment_load_step * VTV(external_force_rhs);
     A = psi_2 * VTV(solution_increment_load_step) + psi_1 * pressure_increment_load_step * pressure_increment_load_step * VTV(external_force_rhs) - radius * radius;
     std::cout << "b = "<< b << "; A = " << A <<std::endl;
@@ -1403,24 +1405,25 @@ template <int dim, int spacedim>
 void Nonlinear_shell<dim, spacedim> ::run()
 {   setup_system();
     bool first_load_step;
-    elec_load = 0;
+    elec_load = 0.1*std::sqrt(2);
     for (unsigned int step = 0; step < max_load_step; ++step) {
         std::cout << "step = "<< step << std::endl;
         
         if(step == 0){
-            lambda = 0.1;
+            lambda = 0.02;
+            pressure_increment_load_step = 0.0;
             first_load_step = true;
-        }else if(step < 3)
+            
+        }else if(step < 2)
         {
             first_load_step = false;
             if (step == 1) {
-                pressure_increment_load_step = 0.2;
+                pressure_increment_load_step = 0.05;
             }
         }else{
             // fix_pressure();
             // pressure_increment_load_step = 0.0;
             first_load_step = false;
-            elec_load = 0.2*std::sqrt(2);
         }
         nonlinear_solver(first_load_step);
         double l1,l2;
@@ -1450,7 +1453,7 @@ void Nonlinear_shell<dim, spacedim> ::run()
         lambda += pressure_increment_load_step;
         std::cout << "pressure_load = " << lambda * reference_pressure << "n/m2" <<std::endl;
         
-        vtk_plot("torus_MR_phi=20_"+std::to_string(step)+".vtu", dof_handler, mapping_collection, vec_values, present_solution, Vector<double>(), lambda * reference_pressure);
+        vtk_plot("torus_MR_phi=10_"+std::to_string(step)+".vtu", dof_handler, mapping_collection, vec_values, present_solution, Vector<double>(), lambda * reference_pressure);
     }
 }
 

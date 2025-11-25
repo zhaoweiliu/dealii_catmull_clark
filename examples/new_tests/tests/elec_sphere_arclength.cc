@@ -859,7 +859,7 @@ private:
     const QGauss<dim-1> Qthickness = QGauss<dim-1>(2);
     const double penalty_factor = 10e30;
     const double reference_pressure = 5000;
-    const unsigned int max_load_step = 31;
+    const unsigned int max_load_step = 30;
     const unsigned int max_newton_step = 20;
     double psi_1 = 5e-7,psi_2 = 1, radius;
     bool converged = false;
@@ -1362,9 +1362,9 @@ void Nonlinear_shell<dim, spacedim> ::run()
         }else if(step < 5)
         {
             first_load_step = false;
-            if (step == 1) {
-                pressure_increment_load_step = 0.1;
-            }
+            // if (step == 1) {
+            //     pressure_increment_load_step = 0.1;
+            // }
         }else{
             // fix_pressure();
             // pressure_increment_load_step = 0.0;
@@ -1399,7 +1399,7 @@ void Nonlinear_shell<dim, spacedim> ::run()
         lambda += pressure_increment_load_step;
         std::cout << "pressure_load = " << lambda * reference_pressure << "n/m2" <<std::endl;
         
-        vtk_plot("sphere2_MR_phi=30_"+std::to_string(step)+".vtu", dof_handler, mapping_collection, vec_values, present_solution, Vector<double>(), lambda * reference_pressure);
+        // vtk_plot("sphere2_MR_phi=30_"+std::to_string(step)+".vtu", dof_handler, mapping_collection, vec_values, present_solution, Vector<double>(), lambda * reference_pressure);
     }
 }
 

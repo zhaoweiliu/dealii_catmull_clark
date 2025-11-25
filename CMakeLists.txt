@@ -40,6 +40,8 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.8.12)
 # all policies CMP0001 - CMP0054 to new for version 3.1 (and later) to
 # avoid some unnecessary warnings.
 #
+add_definitions(-w)
+
 IF( "${CMAKE_VERSION}" VERSION_EQUAL "3.1" OR
     "${CMAKE_VERSION}" VERSION_GREATER "3.1" )
   CMAKE_POLICY(VERSION 3.1.0)

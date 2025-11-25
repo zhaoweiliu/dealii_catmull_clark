@@ -31,3 +31,32 @@ TARGET_LINK_LIBRARIES(electroelastic_torus addition_lib ${LIBRARIES})
 ADD_EXECUTABLE(electroelastic_torus_phi   electroelastic_torus_phi.cc)
 DEAL_II_SETUP_TARGET(electroelastic_torus_phi)
 TARGET_LINK_LIBRARIES(electroelastic_torus_phi addition_lib ${LIBRARIES})
+
+ADD_EXECUTABLE(torus_inflation   torus_inflation.cc)
+DEAL_II_SETUP_TARGET(torus_inflation)
+TARGET_LINK_LIBRARIES(torus_inflation addition_lib ${LIBRARIES})
+
+ADD_EXECUTABLE(shell_elastic_inflation   shell_elastic_inflation.cc)
+DEAL_II_SETUP_TARGET(shell_elastic_inflation)
+TARGET_LINK_LIBRARIES(shell_elastic_inflation addition_lib ${LIBRARIES})
+
+
+ADD_EXECUTABLE(cylinder cylinder.cc)
+DEAL_II_SETUP_TARGET(cylinder)
+TARGET_LINK_LIBRARIES(cylinder addition_lib ${LIBRARIES})
+
+ADD_EXECUTABLE(shell_elastic_inflation_arc   shell_elastic_inflation_arc.cc)
+DEAL_II_SETUP_TARGET(shell_elastic_inflation_arc)
+TARGET_LINK_LIBRARIES(shell_elastic_inflation_arc addition_lib ${LIBRARIES})
+
+ADD_EXECUTABLE(cooks_membrane   cooks_membrane.cc)
+DEAL_II_SETUP_TARGET(cooks_membrane)
+TARGET_LINK_LIBRARIES(cooks_membrane addition_lib ${LIBRARIES})
+
+ADD_EXECUTABLE(coupled_shell_tests   coupled_shell_tests.cc)
+DEAL_II_SETUP_TARGET(coupled_shell_tests)
+TARGET_LINK_LIBRARIES(coupled_shell_tests addition_lib ${LIBRARIES})
+
+ADD_EXECUTABLE(capsule   capsule.cc)
+DEAL_II_SETUP_TARGET(capsule)
+TARGET_LINK_LIBRARIES(capsule addition_lib ${LIBRARIES})

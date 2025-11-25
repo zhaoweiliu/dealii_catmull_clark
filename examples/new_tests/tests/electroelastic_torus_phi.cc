@@ -871,7 +871,7 @@ private:
     const QGauss<dim-1> Qthickness = QGauss<dim-1>(2);
     const double penalty_factor = 10e30;
     const double reference_pressure = 1200/3.;
-    const unsigned int max_load_step = 61;
+    const unsigned int max_load_step = 30;
     const unsigned int max_newton_step = 20;
     double psi_1 = 1e-7,psi_2 = 1, radius;
     bool converged = false;
@@ -1397,6 +1397,14 @@ for (unsigned int idof = 0; idof <constrained_dof_indices.size(); ++idof) {
 template <int dim, int spacedim>
 void Nonlinear_shell<dim, spacedim>::solve(const bool first_load_step)
 {
+//     SolverControl            solver_control(5000, 1e-9);
+//     SolverCG<Vector<double>> solver(solver_control);
+// //  SolverGMRES<Vector<double>> solver(solver_control);
+// //  PreconditionSSOR<SparseMatrix<double>> preconditioner;
+//     PreconditionJacobi<SparseMatrix<double>> preconditioner;
+//     preconditioner.initialize(tangent_matrix);
+//     const auto op_k = linear_operator(tangent_matrix);
+//     const auto op_k_inv = inverse_operator(op_k, solver, preconditioner);
     if (first_load_step == true || is_pressure_fix == true || is_arclength == false) {
         SparseDirectUMFPACK K_direct;
         K_direct.initialize(tangent_matrix);
@@ -1406,12 +1414,22 @@ void Nonlinear_shell<dim, spacedim>::solve(const bool first_load_step)
         auto solution_1 = solution_newton_update;
         auto solution_2 = solution_newton_update;
         
+//        solver.solve(tangent_matrix, solution_1, external_force_rhs, preconditioner);
+//        solver.solve(tangent_matrix, solution_2, residual_vector, preconditioner);
+////
+//        pressure_newton_update = (-VTW(a_vector, solution_2) - A)/(b + VTW(a_vector, solution_1));
+//        solution_newton_update = pressure_newton_update * solution_1 + solution_2;
+        
         SparseDirectUMFPACK K_direct;
         K_direct.initialize(tangent_matrix);
         K_direct.vmult(solution_1, external_force_rhs);
         K_direct.vmult(solution_2, residual_vector);
+
+//        auto solution_1 = op_k_inv * external_force_rhs;
+//        auto solution_2 = op_k_inv * residual_vector;
+        
         pressure_newton_update = (-VTW(a_vector, solution_2) - A)/(b + VTW(a_vector, solution_1));
-        solution_newton_update = pressure_newton_update * solution_1 + solution_2; 
+        solution_newton_update = pressure_newton_update * solution_1 + solution_2;
     }
 }
 
@@ -1428,11 +1446,16 @@ void Nonlinear_shell<dim, spacedim> ::run()
         if(step == 0){
             lambda = 0.1;
             first_load_step = true;
+            pressure_increment_load_step = 0.0;
         }else if(step < 3)
         {
             first_load_step = false;
-            disable_arclength();
-            pressure_increment_load_step = 0.1;
+            if (step == 1) {
+                pressure_increment_load_step = 0.2;
+            }else{
+                disable_arclength();
+                pressure_increment_load_step = 0.1;
+            }
         }
         else if(step > 13){
             fix_pressure();
@@ -1473,7 +1496,7 @@ void Nonlinear_shell<dim, spacedim> ::run()
         std::cout << "pressure_load = " << lambda * reference_pressure << "n/m2" <<std::endl;
         std::cout << "elec_load = " << elec_load/std::sqrt(2)  << " V" <<std::endl;
 
-        vtk_plot("torus_MR_p=120_"+std::to_string(step)+".vtu", dof_handler, mapping_collection, vec_values, present_solution, Vector<double>(), lambda * reference_pressure, elec_load/std::sqrt(2));
+        // vtk_plot("torus_MR_p=120_"+std::to_string(step)+".vtu", dof_handler, mapping_collection, vec_values, present_solution, Vector<double>(), lambda * reference_pressure, elec_load/std::sqrt(2));
     }
 }
 

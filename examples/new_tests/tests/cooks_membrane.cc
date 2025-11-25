@@ -23,7 +23,7 @@
 #include <deal.II/grid/grid_out.h>
 #include <deal.II/grid/grid_in.h>
 #include <deal.II/grid/grid_reordering.h>
-
+ 
 #include <deal.II/dofs/dof_handler.h>
 #include <deal.II/dofs/dof_accessor.h>
 #include <deal.II/fe/fe_q.h>
@@ -52,7 +52,6 @@
 #include <deal.II/lac/constrained_linear_operator.h>
 
 #include <deal.II/lac/solver_cg.h>
-#include <deal.II/lac/solver_gmres.h>
 #include <deal.II/lac/precondition.h>
 
 #include <deal.II/hp/dof_handler.h>
@@ -97,26 +96,6 @@ using namespace dealii;
 //    double product = 1;
 //    return product;
 //}
-double VTV(const Vector<double> vec)
-{
-    double s = 0;
-    for (unsigned i = 0; i < vec.size(); ++i) {
-        s += vec[i] * vec[i];
-    }
-    return s;
-}
-
-
-
-double VTW(const Vector<double> v, const Vector<double> w)
-{
-    double s = 0;
-    Assert(v.size() == w.size(),ExcInternalError());
-    for (unsigned i = 0; i < v.size(); ++i) {
-        s += v[i] * w[i];
-    }
-    return s;
-}
 
 
 
@@ -207,7 +186,7 @@ void cooks_membrane(Triangulation<dim, spacedim> &triangulation)
 
 
 
-void vtk_plot(const std::string &filename, const hp::DoFHandler<2, 3> &dof_handler, const hp::MappingCollection<2, 3> mapping, const Vector<double> vertices, const Vector<double> solution, const Vector<double> potential = Vector<double>(), const double p_t = 0,const double Area = 0, const double Volume = 0){
+void vtk_plot(const std::string &filename, const hp::DoFHandler<2, 3> &dof_handler, const hp::MappingCollection<2, 3> mapping, const Vector<double> vertices, const Vector<double> solution, const Vector<double> potential = Vector<double>()){
     
     //    auto verts = dof_handler.get_triangulation().get_vertices();
     
@@ -217,40 +196,12 @@ void vtk_plot(const std::string &filename, const hp::DoFHandler<2, 3> &dof_handl
     vtkSmartPointer<vtkPoints> points = vtkPoints::New();
     vtkSmartPointer<vtkDoubleArray> function = vtkDoubleArray::New();
     vtkSmartPointer<vtkDoubleArray> function_2 = vtkDoubleArray::New();
-    vtkSmartPointer<vtkDoubleArray> normal = vtkDoubleArray::New();
-    vtkSmartPointer<vtkDoubleArray> stretch = vtkDoubleArray::New();
-    vtkSmartPointer<vtkDoubleArray> pressure = vtkDoubleArray::New();
-    vtkSmartPointer<vtkDoubleArray> area = vtkDoubleArray::New();
-    vtkSmartPointer<vtkDoubleArray> volume = vtkDoubleArray::New();
-
-
+    
     function->SetNumberOfComponents(3);
     function->SetName("disp");
     function->SetComponentName(0, "x");
     function->SetComponentName(1, "y");
     function->SetComponentName(2, "z");
-    
-    normal->SetNumberOfComponents(3);
-    normal->SetName("normal");
-    normal->SetComponentName(0, "x");
-    normal->SetComponentName(1, "y");
-    normal->SetComponentName(2, "z");
-    
-    stretch->SetNumberOfComponents(1);
-    stretch->SetName("stretch");
-    stretch->SetComponentName(0, "value");
-    
-    pressure->SetNumberOfComponents(1);
-    pressure->SetName("pressure");
-    pressure->SetComponentName(0, "value");
-    
-    area->SetNumberOfComponents(1);
-    area->SetName("area");
-    area->SetComponentName(0, "value");
-    
-    volume->SetNumberOfComponents(1);
-    volume->SetName("volume");
-    volume->SetComponentName(0, "value");
     
     if (potential.size() != 0){
         function_2->SetNumberOfComponents(1);
@@ -278,22 +229,28 @@ void vtk_plot(const std::string &filename, const hp::DoFHandler<2, 3> &dof_handl
                 Point<3,double> spt = {0,0,0};
                 Tensor<1,3,double> disp({0,0,0});
                 std::vector<Tensor<1,3>> JJ(3);
-                std::vector<Tensor<1,3>> JJ_def(3);
-                //                std::vector<Tensor<2,3>> JJ_grad(2);
+                std::vector<Tensor<2,3>> JJ_grad(2);
                 double sol = 0;
                 for (unsigned int idof = 0; idof < dofs_per_cell; ++idof)
                 {
                     double shapes = dof_handler.get_fe(cell->active_fe_index()).shape_value(idof, {u,v});
-                    const auto shape_der = dof_handler.get_fe(cell->active_fe_index()).shape_grad(idof, {u,v});
                     
                     sol += shapes * solution[local_dof_indices[idof]];
-                    spt[idof % 3] += shapes * vertices[local_dof_indices[idof]];
-                    disp[idof % 3] += shapes * solution[local_dof_indices[idof]];
                     
-                    JJ[0][idof % 3] += shape_der[0] * vertices[local_dof_indices[idof]];
-                    JJ[1][idof % 3] += shape_der[1] * vertices[local_dof_indices[idof]];
-                    JJ_def[0][idof % 3] += shape_der[0] * vertices[local_dof_indices[idof]] + shape_der[0] * solution[local_dof_indices[idof]];
-                    JJ_def[1][idof % 3] += shape_der[1] * vertices[local_dof_indices[idof]] + shape_der[1] * solution[local_dof_indices[idof]];
+                    switch (idof % 3) {
+                        case 0:
+                            spt[0] += shapes * vertices[local_dof_indices[idof]];
+                            disp[0] += shapes * solution[local_dof_indices[idof]];
+                            break;
+                        case 1:
+                            spt[1] += shapes * vertices[local_dof_indices[idof]];
+                            disp[1] += shapes * solution[local_dof_indices[idof]];
+                            break;
+                        case 2:
+                            spt[2] += shapes * vertices[local_dof_indices[idof]];
+                            disp[2] += shapes * solution[local_dof_indices[idof]];
+                            break;
+                    }
                 }
                 double p = 0;
                 if (potential.size() != 0){
@@ -304,14 +261,6 @@ void vtk_plot(const std::string &filename, const hp::DoFHandler<2, 3> &dof_handl
                 }
                 
                 JJ[2] = cross_product_3d(JJ[0],JJ[1]);
-                JJ_def[2] = cross_product_3d(JJ_def[0],JJ_def[1]);
-                
-                double detJ = JJ[2].norm();
-                JJ[2] = JJ[2]/detJ;
-                double detJ_def = JJ_def[2].norm();
-                JJ_def[2] = JJ_def[2]/detJ_def;
-                
-                double principle_stretch = sqrt(detJ_def / detJ);
                 
                 double coordsdata [3] = {spt[0],spt[1],spt[2]};
                 
@@ -322,15 +271,6 @@ void vtk_plot(const std::string &filename, const hp::DoFHandler<2, 3> &dof_handl
                 function->InsertComponent(sample_offset+count, 2, disp[2]);
                 if (potential.size() != 0)
                     function_2->InsertComponent(sample_offset+count, 0, p);
-                
-                normal->InsertComponent(sample_offset+count, 0, JJ[2][0]);
-                normal->InsertComponent(sample_offset+count, 1, JJ[2][1]);
-                normal->InsertComponent(sample_offset+count, 2, JJ[2][2]);
-                
-                stretch->InsertComponent(sample_offset+count, 0, principle_stretch);
-                pressure->InsertComponent(sample_offset+count, 0, p_t);
-                area->InsertComponent(sample_offset+count, 0, Area);
-                volume->InsertComponent(sample_offset+count, 0, Volume);
                 ++count;
             }
         }
@@ -355,12 +295,6 @@ void vtk_plot(const std::string &filename, const hp::DoFHandler<2, 3> &dof_handl
     if (potential.size() != 0){
         grid -> GetPointData() -> AddArray(function_2);
     }
-    grid -> GetPointData() -> AddArray(normal);
-    grid -> GetPointData() -> AddArray(stretch);
-    grid -> GetPointData() -> AddArray(pressure);
-    grid -> GetPointData() -> AddArray(area);
-    grid -> GetPointData() -> AddArray(volume);
-
     vtkSmartPointer<vtkXMLUnstructuredGridWriter> writer = vtkXMLUnstructuredGridWriter::New();
     writer -> SetFileName(filename.c_str());
     writer -> SetInputData(grid);
@@ -371,7 +305,28 @@ void vtk_plot(const std::string &filename, const hp::DoFHandler<2, 3> &dof_handl
 
 
 
+//template<int dim, int spacedim>
+//class material_class
+//{
+//public:
+//    virtual ~material_class()
+//    {}
+//
+//    virtual std::pair<std::vector<Tensor<2,dim>>, std::vector<Tensor<4,dim>>> get_integral_tensors(){};
+//
+//    virtual void update(const Tensor<1, dim, Tensor<1,spacedim>> delta_u_der, /* du_{,a} */
+//    const Tensor<2, dim, Tensor<1,spacedim>> delta_u_der2 /* du_{,ab} */);
+//
+//    virtual Tensor<2, spacedim> get_deformed_covariant_bases(){};
+//
+//    virtual Tensor<2, dim, Tensor<1,spacedim>> get_deformed_covariant_bases_deriv(){};
+//
+//};
+
+
+
 template<int dim, int spacedim>
+//class material_neo_hookean : public material_class<dim, spacedim>
 class material_neo_hookean
 {
 public:
@@ -406,8 +361,8 @@ public:
     }
     
     Tensor<2,dim>  get_stress(const double C_33,
-                              const Tensor<2,dim> gm_contra_ref,
-                              const Tensor<2,dim> gm_contra_def);
+                           const Tensor<2,dim> gm_contra_ref,
+                           const Tensor<2,dim> gm_contra_def);
     
     Tensor<4,dim>  get_elastic_tensor(const double C_33,
                                       const Tensor<2,dim> gm_contra_def);
@@ -423,8 +378,6 @@ public:
                 da_cov_def[ia][ib] += delta_u_der2[ia][ib]; // a_{alpha,\beta} = bar{a_{alpha,beta}} + u_{,alpha beta}
             }
         }
-        a_cov_def[2] = cross_product_3d(a_cov_def[0], a_cov_def[1]);
-        a_cov_def[2] = a_cov_def[2]/a_cov_def[2].norm();
     };
     
     std::pair<std::vector<Tensor<2,dim>>, std::vector<Tensor<4,dim>>> get_integral_tensors();
@@ -432,11 +385,6 @@ public:
     Tensor<2, spacedim> get_deformed_covariant_bases()
     {
         return a_cov_def;
-    }
-    
-    Tensor<2, spacedim> get_refernce_covariant_bases()
-    {
-        return a_cov_ref;
     }
     
     Tensor<2, dim, Tensor<1,spacedim>> get_deformed_covariant_bases_deriv()
@@ -454,7 +402,7 @@ private:
     Tensor<2, spacedim> a_cov_def; // a_i = x_{,i} , i = 1,2,3
     // deformed derivatives of covariant base a_1, a_2;
     Tensor<2, dim, Tensor<1,spacedim>> da_cov_def; // a_{i,j} = x_{,ij} , i,j = 1,2
-    // derivatives of a_3_ref
+    // derivatives of a_3
     Tensor<1, dim, Tensor<1,spacedim>> da3_ref; // a_{3,i}, i = 1,2
     // covariant metric tensor
     const Tensor<2,dim> am_cov_ref;
@@ -474,14 +422,14 @@ private:
 
 template<int dim, int spacedim>
 Tensor<2,dim> material_neo_hookean<dim, spacedim> :: get_stress(const double C_33,
-                                                                const Tensor<2,dim> gm_contra_ref,
-                                                                const Tensor<2,dim> gm_contra_def)
+                                                             const Tensor<2,dim> gm_contra_ref,
+                                                             const Tensor<2,dim> gm_contra_def)
 {
     Tensor<2,dim> tau;
     for (unsigned int ia = 0; ia < dim; ++ia)
         for (unsigned int ib = 0; ib < dim; ++ib)
             tau[ia][ib] += mu * (gm_contra_ref[ia][ib] - C_33 * gm_contra_def[ia][ib]);
-        
+    
     return tau;
 }
 
@@ -497,8 +445,8 @@ Tensor<4,dim> material_neo_hookean<dim, spacedim> ::get_elastic_tensor(const dou
             for (unsigned int ic = 0; ic < dim; ++ic)
                 for (unsigned int id = 0; id < dim; ++id)
                     elastic_tensor[ia][ib][ic][id] += mu  * C_33 * (2 * gm_contra_def[ia][ib] * gm_contra_def[ic][id] + gm_contra_def[ia][ic] * gm_contra_def[ib][id] + gm_contra_def[ia][id] * gm_contra_def[ib][ic] );
-    
-    return elastic_tensor;
+
+     return elastic_tensor;
 }
 
 
@@ -516,49 +464,35 @@ material_neo_hookean<dim, spacedim> :: get_integral_tensors()
         Tensor<dim,spacedim> g_cov_ref;
         g_cov_ref[0] = a_cov_ref[0] + zeta * da3_ref[0];
         g_cov_ref[1] = a_cov_ref[1] + zeta * da3_ref[1];
-        double a3_norm_ref = cross_product_3d(a_cov_ref[0], a_cov_ref[1]).norm();
         double J_ratio = cross_product_3d(g_cov_ref[0], g_cov_ref[1]).norm()/cross_product_3d(a_cov_ref[0],a_cov_ref[1]).norm();
         g_cov_ref[2] = a_cov_ref[2]; // Kirchhoff-Love assumption
         
         Tensor<2, dim> gm_cov_ref = metric_covariant(g_cov_ref); // gm_ab
         Tensor<2, dim> gm_contra_ref = metric_contravariant(gm_cov_ref);
         
-        auto a_cov_def = a_cov_ref;
-        auto da_cov_def = da_cov_ref;
-        a_cov_def[0] += u_der[0];
-        a_cov_def[1] += u_der[1];
-        da_cov_def[0][0] += u_der2[0][0];
-        da_cov_def[0][1] += u_der2[0][1];
-        da_cov_def[1][0] += u_der2[1][0];
-        da_cov_def[1][1] += u_der2[1][1];
-        double a3_norm_def = cross_product_3d(a_cov_def[0], a_cov_def[1]).norm();
-        auto a3_def =  cross_product_3d(a_cov_def[0], a_cov_def[1])/a3_norm_def;
-        double l3 = a3_norm_ref/a3_norm_def;
-        Tensor<2, dim> gm_cov_def;
-        for (unsigned int ia = 0; ia < dim; ++ia) {
-            for (unsigned int ib = 0; ib < dim; ++ib) {
-                gm_cov_def[ia][ib] = scalar_product(a_cov_def[ia], a_cov_def[ib]) - 2 * zeta * l3 * scalar_product(da_cov_def[ia][ib], a3_def);
-            }
-        }
+        Tensor<2, spacedim> g_cov_def = g_cov_ref;
+        g_cov_def[0] += u_der[0];
+        g_cov_def[1] += u_der[1];
+        Tensor<2, dim> gm_cov_def = metric_covariant(g_cov_def);
         Tensor<2, dim> gm_contra_def = metric_contravariant(gm_cov_def);
-                
+        
         // for incompressible material
         double g_33 = determinant(gm_cov_ref)/determinant(gm_cov_def); // J_0^{-2}
         
-        //        std::cout << "g_33 = " << g_33 << std::endl;
+//        std::cout << "g_33 = " << g_33 << std::endl;
         
         Tensor<2, dim> stress_tensor = get_stress(g_33, gm_contra_ref, gm_contra_def);
         Tensor<4, dim> elastic_tensor = get_elastic_tensor(g_33, gm_contra_def);
         
         for (unsigned int ia = 0; ia < dim; ++ia) {
             for (unsigned int ib = 0; ib < dim; ++ib) {
-                resultants[0][ia][ib] += stress_tensor[ia][ib] * thickness * J_ratio * l3 *  w_t;
-                resultants[1][ia][ib] += stress_tensor[ia][ib] * zeta * thickness * J_ratio * l3 * w_t;
+                resultants[0][ia][ib] += stress_tensor[ia][ib] * thickness * J_ratio * w_t;
+                resultants[1][ia][ib] += stress_tensor[ia][ib] * zeta * thickness * J_ratio * w_t;
                 for (unsigned int ic = 0; ic < dim; ++ic) {
                     for (unsigned int id = 0; id < dim; ++id) {
-                        D_tensors[0][ia][ib][ic][id] += elastic_tensor[ia][ib][ic][id] * J_ratio * thickness * l3 * w_t;
-                        D_tensors[1][ia][ib][ic][id] += elastic_tensor[ia][ib][ic][id] * zeta * J_ratio * thickness * l3 * w_t;
-                        D_tensors[2][ia][ib][ic][id] += elastic_tensor[ia][ib][ic][id] * zeta  * zeta * J_ratio * thickness * l3 * w_t;
+                        D_tensors[0][ia][ib][ic][id] += elastic_tensor[ia][ib][ic][id] * J_ratio * thickness * w_t;
+                        D_tensors[1][ia][ib][ic][id] += elastic_tensor[ia][ib][ic][id] * zeta * J_ratio * thickness * w_t;
+                        D_tensors[2][ia][ib][ic][id] += elastic_tensor[ia][ib][ic][id] * zeta  * zeta * J_ratio * thickness * w_t;
                     }
                 }
             }
@@ -570,6 +504,7 @@ material_neo_hookean<dim, spacedim> :: get_integral_tensors()
 
 
 template<int dim, int spacedim>
+//class material_mooney_rivlin : public material_class<dim, spacedim>
 class material_mooney_rivlin
 {
 public:
@@ -615,7 +550,7 @@ public:
                                       const Tensor<2,dim> gm_contra_def);
     
     void update(const Tensor<1, dim, Tensor<1,spacedim>> delta_u_der, /* du_{,a} */
-                const Tensor<2, dim, Tensor<1,spacedim>> delta_u_der2 /* du_{,ab} */)
+                const Tensor<2, dim, Tensor<1,spacedim>> delta_u_der2 /* du_{,ab} */) override
     {
         u_der += delta_u_der;
         u_der2 += delta_u_der2;
@@ -625,24 +560,16 @@ public:
                 da_cov_def[ia][ib] += delta_u_der2[ia][ib]; // a_{alpha,beta} = bar{a_{alpha,beta}} + u_{,alpha beta}
             }
         }
-        a_cov_def[2] = cross_product_3d(a_cov_def[0], a_cov_def[1]);
-        a_cov_def[2] = a_cov_def[2]/a_cov_def[2].norm();
     };
     
-    std::pair<std::vector<Tensor<2,dim>>, std::vector<Tensor<4,dim>>> get_integral_tensors();
+    std::pair<std::vector<Tensor<2,dim>>, std::vector<Tensor<4,dim>>> get_integral_tensors() override;
     
-    Tensor<2, spacedim> get_deformed_covariant_bases()
+    Tensor<2, spacedim> get_deformed_covariant_bases() override
     {
         return a_cov_def;
     }
     
-    Tensor<2, spacedim> get_reference_covariant_bases()
-    {
-        return a_cov_ref;
-    }
-    
-    
-    Tensor<2, dim, Tensor<1,spacedim>> get_deformed_covariant_bases_deriv()
+    Tensor<2, dim, Tensor<1,spacedim>> get_deformed_covariant_bases_deriv() override
     {
         return da_cov_def;
     }
@@ -672,9 +599,6 @@ private:
     
     Tensor<2, dim, Tensor<1,spacedim>> u_der2;
     
-    const double beta = 1.;
-
-    const double elec_potential = 0;
 };
 
 
@@ -686,33 +610,13 @@ Tensor<2,dim> material_mooney_rivlin<dim,spacedim> :: get_tau(const double C_33,
                                                               const Tensor<2,dim> gm_contra_def)
 {
     Tensor<2,dim> tau;
-    double trace_C = 0;
-    for (unsigned int ic = 0; ic < dim; ++ic){
-        for (unsigned int id = 0; id < dim; ++id){
-            trace_C += gm_cov_def[ic][id] * gm_contra_ref[ic][id];
-        }
-    }
-    trace_C += C_33;
-    Tensor<2,dim> T1;
-    for (unsigned int ia = 0; ia < dim; ++ia){
-        for (unsigned int ib = 0; ib < dim; ++ib){
-            for (unsigned int ic = 0; ic < dim; ++ic){
+    for (unsigned int ia = 0; ia < dim; ++ia)
+        for (unsigned int ib = 0; ib < dim; ++ib)
+            for (unsigned int ic = 0; ic < dim; ++ic)
                 for (unsigned int id = 0; id < dim; ++id){
-                    T1[ia][ib] += gm_contra_ref[ia][ic] * gm_cov_def[ic][id] * gm_contra_ref[ib][id];
+                    tau[ia][ib] += 2. * (c_1 * gm_contra_ref[ia][ib] + c_2 * ( gm_cov_def[ic][id] * gm_contra_ref[ic][id] * gm_contra_ref[ia][ib] -  gm_cov_def[ic][id] * gm_contra_ref[ia][ic] * gm_contra_ref[id][ib] )) - 2. * ( c_1 + c_2 * ( gm_cov_def[ic][id] * gm_contra_ref[ic][id] - gm_cov_def[ic][id] * gm_contra_ref[2][ic] * gm_contra_ref[id][2] ) ) * C_33 * gm_contra_def[ia][ib];
                 }
-            }
-        }
-    }
-    for (unsigned int ia = 0; ia < dim; ++ia){
-        for (unsigned int ib = 0; ib < dim; ++ib){
-//            tau[ia][ib] += 2 * c_1 * gm_contra_ref[ia][ib] + 2 * c_2 * (trace_C * gm_contra_ref[ia][ib] - T1[ia][ib]) - 2 * (c_1 + c_2 * (trace_C - C_33)) * C_33 * gm_contra_def[ia][ib] ;
-            tau[ia][ib] += 2 * c_1 * gm_contra_ref[ia][ib] + 2 * c_2 * (trace_C * gm_contra_ref[ia][ib] - T1[ia][ib]) - 2 * (c_1 + c_2 * (trace_C - C_33)) * C_33 * gm_contra_def[ia][ib]  - elec_potential * elec_potential/(2 * beta* thickness * thickness * C_33) * gm_contra_def[ia][ib] ;
-
-        }
-    }
     
-//    std::cout << "tau = " << tau << std::endl;
-
     return tau;
 }
 
@@ -724,25 +628,17 @@ Tensor<4, dim> material_mooney_rivlin<dim,spacedim> ::get_elastic_tensor(const d
                                                                          const Tensor<2,dim> gm_cov_def,
                                                                          const Tensor<2,dim> gm_contra_def)
 {
-    double trace_C = 0;
-    for (unsigned int ic = 0; ic < dim; ++ic){
-        for (unsigned int id = 0; id < dim; ++id){
-            trace_C += gm_cov_def[ic][id] * gm_contra_ref[ic][id];
-        }
-    }
-    trace_C += C_33;
-    
     Tensor<4, dim> elastic_tensor;
     Tensor<4, dim> d2psi_d2;
     Tensor<2, dim> dpsi_d33dab;
-    double dpsi_d33 = c_1 + c_2 * (trace_C - C_33);
+    double dpsi_d33;
     for (unsigned int ia = 0; ia < dim; ++ia) {
         for (unsigned int ib = 0; ib < dim; ++ib) {
-            dpsi_d33dab[ia][ib] += c_2 * gm_contra_ref[ia][ib];
+            dpsi_d33dab[ia][ib] += c_2 * gm_contra_ref[ia][ib] - c_2 * gm_contra_ref[2][ia] * gm_contra_ref[2][ib];
+            dpsi_d33 += c_1 + c_2 * ( gm_contra_ref[ia][ib] * gm_contra_ref[ia][ib] - gm_contra_ref[2][ia] * gm_cov_def[ia][ib] * gm_contra_ref[2][ib]  );
             for (unsigned int ic = 0; ic < dim; ++ic) {
                 for (unsigned int id = 0; id < dim; ++id) {
-                    //                    d2psi_d2[ia][ib][ic][id] += c_2 * gm_contra_ref[ia][ib] * gm_contra_ref[ic][id] - 0.5 * c_2 * (gm_contra_ref[ia][ic] * gm_contra_ref[ib][id] + gm_contra_ref[ia][id] * gm_contra_ref[ib][ic]);
-                    d2psi_d2[ia][ib][ic][id] += - 0.5 * c_2 * (gm_contra_ref[ia][ic] * gm_contra_ref[ib][id] + gm_contra_ref[ia][id] * gm_contra_ref[ib][ic] - 2 * gm_contra_ref[ia][ib] * gm_contra_ref[ic][id]);
+                    d2psi_d2[ia][ib][ic][id] += c_2 * gm_contra_ref[ia][ib] * gm_contra_ref[ic][id] - 0.5 * c_2 * (gm_contra_ref[ia][ic] * gm_contra_ref[ib][id] + gm_contra_ref[ia][id] * gm_contra_ref[ib][ic]);
                 }
             }
         }
@@ -752,9 +648,7 @@ Tensor<4, dim> material_mooney_rivlin<dim,spacedim> ::get_elastic_tensor(const d
         for (unsigned int ib = 0; ib < dim; ++ib) {
             for (unsigned int ic = 0; ic < dim; ++ic) {
                 for (unsigned int id = 0; id < dim; ++id) {
-//                    elastic_tensor[ia][ib][ic][id] += 4 * d2psi_d2[ia][ib][ic][id] - 4 * dpsi_d33dab[ia][ib] * C_33 * gm_contra_def[ic][id] - 4 * dpsi_d33dab[ic][id] * C_33 * gm_contra_def[ia][ib] + 2 * dpsi_d33 * C_33 * ( 2 * gm_contra_def[ia][ib] * gm_contra_def[ic][id] + gm_contra_def[ia][ic] * gm_contra_def[ib][id] + gm_contra_def[ia][id] * gm_contra_def[ib][ic] );
-                    elastic_tensor[ia][ib][ic][id] += 4 * d2psi_d2[ia][ib][ic][id] - 4 * dpsi_d33dab[ia][ib] * C_33 * gm_contra_def[ic][id] - 4 * dpsi_d33dab[ic][id] * C_33 * gm_contra_def[ia][ib] - (2 * dpsi_d33 * C_33 + elec_potential * elec_potential / (2*beta*thickness*thickness*C_33))* ( gm_contra_def[ia][ib] * gm_contra_def[ic][id] - gm_contra_def[ia][ic] * gm_contra_def[ib][id] - gm_contra_def[ia][id] * gm_contra_def[ib][ic]) + gm_contra_def[ia][ib] * gm_contra_def[ic][id] * (6 * dpsi_d33 * C_33 - elec_potential * elec_potential / (2*beta*thickness*thickness*C_33));
-
+                    elastic_tensor[ia][ib][ic][id] += 4 * d2psi_d2[ia][ib][ic][id] - 4 * dpsi_d33dab[ia][ib] * C_33 * gm_contra_def[ic][id] - 4 * dpsi_d33dab[ic][id] * C_33 * gm_contra_def[ia][ib] + 2 * dpsi_d33 * C_33 * ( 2 * gm_contra_def[ia][ib] * gm_contra_def[ic][id] + gm_contra_def[ia][ic] * gm_contra_def[ib][id] + gm_contra_def[ia][id] * gm_contra_def[ic][ic] );
                 }
             }
         }
@@ -766,8 +660,7 @@ Tensor<4, dim> material_mooney_rivlin<dim,spacedim> ::get_elastic_tensor(const d
 
 
 template<int dim, int spacedim>
-std::pair<std::vector<Tensor<2,dim>>, std::vector<Tensor<4,dim>>>
-material_mooney_rivlin<dim, spacedim> :: get_integral_tensors()
+std::pair<std::vector<Tensor<2,dim>>, std::vector<Tensor<4,dim>>> material_mooney_rivlin< dim, spacedim >:: get_integral_tensors()
 {
     std::vector<Tensor<2,dim>> resultants(2);
     std::vector<Tensor<4,dim>> D_tensors(3);
@@ -775,42 +668,27 @@ material_mooney_rivlin<dim, spacedim> :: get_integral_tensors()
         double u_t = Qh.get_points()[iq_1d][0];
         double w_t = Qh.get_weights()[iq_1d];
         double zeta = thickness * (u_t - 0.5);
-        Tensor<dim,spacedim> g_cov_ref;
+        Tensor<2,spacedim> g_cov_ref;
         g_cov_ref[0] = a_cov_ref[0] + zeta * da3_ref[0];
         g_cov_ref[1] = a_cov_ref[1] + zeta * da3_ref[1];
-        double a3_norm_ref = cross_product_3d(a_cov_ref[0], a_cov_ref[1]).norm();
-        double J_ratio = cross_product_3d(g_cov_ref[0], g_cov_ref[1]).norm()/cross_product_3d(a_cov_ref[0],a_cov_ref[1]).norm();
+        g_cov_ref[2] = cross_product_3d(g_cov_ref[0], g_cov_ref[1]);
+        double J_ratio = g_cov_ref[2].norm()/cross_product_3d(a_cov_ref[0],a_cov_ref[1]).norm();
         g_cov_ref[2] = a_cov_ref[2]; // Kirchhoff-Love assumption
         
         Tensor<2, dim> gm_cov_ref = metric_covariant(g_cov_ref); // gm_ab
         Tensor<2, dim> gm_contra_ref = metric_contravariant(gm_cov_ref);
         
-        auto a_cov_def = a_cov_ref;
-        auto da_cov_def = da_cov_ref;
-        a_cov_def[0] += u_der[0];
-        a_cov_def[1] += u_der[1];
-        da_cov_def[0][0] += u_der2[0][0];
-        da_cov_def[0][1] += u_der2[0][1];
-        da_cov_def[1][0] += u_der2[1][0];
-        da_cov_def[1][1] += u_der2[1][1];
-        double a3_norm_def = cross_product_3d(a_cov_def[0], a_cov_def[1]).norm();
-        auto a3_def =  cross_product_3d(a_cov_def[0], a_cov_def[1])/a3_norm_def;
-        double l3 = a3_norm_ref/a3_norm_def;
-        Tensor<2, dim> gm_cov_def;
-        for (unsigned int ia = 0; ia < dim; ++ia) {
-            for (unsigned int ib = 0; ib < dim; ++ib) {
-                gm_cov_def[ia][ib] = scalar_product(a_cov_def[ia], a_cov_def[ib]) - 2 * zeta * l3 * scalar_product(da_cov_def[ia][ib], a3_def);
-            }
-        }
+        Tensor<2, spacedim> g_cov_def = g_cov_ref;
+        g_cov_def[0] += u_der[0];
+        g_cov_def[1] += u_der[1];
+        Tensor<2, dim> gm_cov_def = metric_covariant(g_cov_def);
         Tensor<2, dim> gm_contra_def = metric_contravariant(gm_cov_def);
         
-        // for incompressible material
+        // for imcompressible material
         double g_33 = determinant(gm_cov_ref)/determinant(gm_cov_def); // J_0^{-2}
         
-//        std::cout << "g_33 = " << g_33 << std::endl;
-        
-        Tensor<2, dim> stress_tensor = get_tau(g_33, gm_contra_ref, gm_cov_def, gm_contra_def);
-        Tensor<4, dim> elastic_tensor = get_elastic_tensor(g_33, gm_contra_ref,gm_cov_def,gm_contra_def);
+        Tensor<2, dim> stress_tensor = get_tau(g_33, gm_contra_ref,gm_cov_def, gm_contra_def);
+        Tensor<4, dim> elastic_tensor = get_elastic_tensor(g_33, gm_contra_ref, gm_cov_def, gm_contra_def);
         
         for (unsigned int ia = 0; ia < dim; ++ia) {
             for (unsigned int ib = 0; ib < dim; ++ib) {
@@ -857,11 +735,6 @@ public:
         material->update(delta_u_der, delta_u_der2);
     }
     
-    void update_qp_displacement(const Tensor<1,spacedim> delta_u)
-    {
-        displacement += delta_u;
-    }
-    
     std::pair<std::vector<Tensor<2,dim>>, std::vector<Tensor<4,dim>>> get_integral_tensors(){
         return material->get_integral_tensors();
     }
@@ -872,111 +745,12 @@ public:
     
     Tensor<2, dim, Tensor<1,spacedim>> get_deformed_covariant_bases_deriv(){
         return material->get_deformed_covariant_bases_deriv();
-    }
-    
-    void set_jxw_reference(double jxw){mjxw = jxw;}
-    
-    void set_reference_position( Point<spacedim> pt_ref){reference_coords = pt_ref;}
-    
-    Point<spacedim> get_coord_reference(){return reference_coords;}
-    
-    Point<spacedim> get_displacement(){return displacement;}
-
-    double get_jxw_deformed(){
-        Tensor<2, spacedim> a_cov_ref = material->get_reference_covariant_bases();
-        Tensor<2, spacedim> a_cov_def = material->get_deformed_covariant_bases();
-        double detJ_ref = cross_product_3d(a_cov_ref[0], a_cov_ref[1]).norm();
-        double detJ_def = cross_product_3d(a_cov_def[0], a_cov_def[1]).norm();
-        double area_stretch = detJ_def/detJ_ref;
-        return area_stretch * mjxw;
     }
     
 private:
     std::shared_ptr< material_neo_hookean<dim,spacedim> > material;
     std::string material_type = "neo_hookean";
-    double mjxw = 0.;
-    Point<spacedim> reference_coords{0.,0.,0.};
-    Point<spacedim> displacement{0.,0.,0.};
 };
-
-
-
-template<int dim, int spacedim>
-class PointHistory_MR
-{
-public:
-    PointHistory_MR()
-    {}
-    
-    virtual ~PointHistory_MR()
-    {}
-    
-    std::string return_material_type(){return material_type;}
-    
-    void setup_cell_qp (const double h,
-                        const Tensor<2, spacedim> a_cov,
-                        const Tensor<2, dim, Tensor<1,spacedim>> da_cov,
-                        const double c_1,
-                        const double c_2)
-    {
-        material.reset(new material_mooney_rivlin<dim,spacedim>(c_1, c_2, h, a_cov, da_cov));
-    }
-    
-    void update_cell_qp(const Tensor<1, dim, Tensor<1,spacedim>> delta_u_der, /* du_{,a} */
-                        const Tensor<2, dim, Tensor<1,spacedim>> delta_u_der2 /* du_{,ab} */)
-    {
-        material->update(delta_u_der, delta_u_der2);
-    }
-    
-    void update_qp_displacement(const Tensor<1,spacedim> delta_u)
-    {
-        displacement += delta_u;
-    }
-    
-    std::pair<std::vector<Tensor<2,dim>>, std::vector<Tensor<4,dim>>> get_integral_tensors(){
-        return material->get_integral_tensors();
-    }
-    
-    Tensor<2, spacedim> get_deformed_covariant_bases(){
-        return material->get_deformed_covariant_bases();
-    }
-    
-    Tensor<2, spacedim> get_reference_covariant_bases(){
-        return material->get_reference_covariant_bases();
-    }
-    
-    Tensor<2, dim, Tensor<1,spacedim>> get_deformed_covariant_bases_deriv(){
-        return material->get_deformed_covariant_bases_deriv();
-    }
-    
-    void set_jxw_reference(double jxw){mjxw = jxw;}
-    
-    void set_reference_position( Point<spacedim> pt_ref){reference_coords = pt_ref;}
-    
-    Point<spacedim> get_coord_reference(){return reference_coords;}
-    
-    Point<spacedim> get_displacement(){return displacement;}
-
-    double get_jxw_deformed(){
-        Tensor<2, spacedim> a_cov_ref = material->get_reference_covariant_bases();
-        Tensor<2, spacedim> a_cov_def = material->get_deformed_covariant_bases();
-        double detJ_ref = cross_product_3d(a_cov_ref[0], a_cov_ref[1]).norm();
-        double detJ_def = cross_product_3d(a_cov_def[0], a_cov_def[1]).norm();
-        double area_stretch = detJ_def/detJ_ref;
-        return area_stretch * mjxw;
-    }
-    
-private:
-    std::shared_ptr< material_mooney_rivlin<dim,spacedim> > material;
-    std::string material_type = "mooney_rivlin";
-    double mjxw = 0.;
-    Point<spacedim> reference_coords{0.,0.,0.};
-    Point<spacedim> displacement{0.,0.,0.};
-};
-
-
-
-
 
 
 
@@ -984,7 +758,7 @@ template<int dim, int spacedim>
 class tangent_derivatives
 {
 public:
-    tangent_derivatives(const double ishape_fun, const Tensor<1, dim> ishape_grad, const Tensor<2,dim> ishape_hessian, const double jshape_fun, const Tensor<1, dim> jshape_grad, const Tensor<2,dim> jshape_hessian, const Tensor<2, spacedim> a_cov, const Tensor<2, spacedim> a_cov_ref, const Tensor<2, dim, Tensor<1,spacedim>> da_cov, const unsigned int dof_i, const unsigned int dof_j)
+    tangent_derivatives(const double ishape_fun, const Tensor<1, dim> ishape_grad, const Tensor<2,dim> ishape_hessian, const double jshape_fun, const Tensor<1, dim> jshape_grad, const Tensor<2,dim> jshape_hessian, const Tensor<2, spacedim> a_cov, const Tensor<2, dim, Tensor<1,spacedim>> da_cov, const unsigned int dof_i, const unsigned int dof_j)
     :
     i_shape(ishape_fun),
     i_shape_deriv(ishape_grad),
@@ -993,21 +767,20 @@ public:
     j_shape_deriv(jshape_grad),
     j_shape_deriv2(jshape_hessian),
     a_cov(a_cov),
-    a_cov_ref(a_cov_ref),
     da_cov(da_cov),
     r(dof_i),
     s(dof_j)
     {
         u_r[r%3] = i_shape;
         r_r[r%3] = i_shape;
-        
+
         u_s[s%3] = j_shape;
         r_s[s%3] = j_shape;
         
         for (unsigned int i = 0; i < dim; ++i) {
             a_cov_ar[i][r%3] = i_shape_deriv[i];
             a_cov_as[i][s%3] = j_shape_deriv[i];
-            
+
             for (unsigned int j = 0; j < dim; ++j) {
                 a_cov_abr[i][j][r%3] = i_shape_deriv2[i][j];
                 a_cov_abs[i][j][s%3] = j_shape_deriv2[i][j];
@@ -1015,11 +788,7 @@ public:
         }
         
         Tensor<1, spacedim> a3_t = cross_product_3d(a_cov[0], a_cov[1]);
-        Tensor<1, spacedim> a3_t_ref = cross_product_3d(a_cov_ref[0], a_cov_ref[1]);
         double a3_bar = a3_t.norm();
-        double a3_bar_ref = a3_t_ref.norm();
-        l3 = (a3_bar_ref/a3_bar);
-        
         Tensor<1, dim, Tensor<1, spacedim>> a3_t_da;
         for (unsigned int i = 0; i < dim; ++i) {
             a3_t_da[i] = cross_product_3d(da_cov[0][i], a_cov[1]) + cross_product_3d(a_cov[0], da_cov[1][i]);
@@ -1032,8 +801,8 @@ public:
             a3_da[i] = a3_t_da[i] / a3_bar -  ( a3_bar_da[i] * a3_t) / (a3_bar * a3_bar);
         }
         
-        a3_t_dr = cross_product_3d(a_cov_ar[0], a_cov[1]) + cross_product_3d(a_cov[0], a_cov_ar[1]);
-        a3_t_ds = cross_product_3d(a_cov_as[0], a_cov[1]) + cross_product_3d(a_cov[0], a_cov_as[1]);
+        Tensor<1, spacedim> a3_t_dr = cross_product_3d(a_cov_ar[0], a_cov[1]) + cross_product_3d(a_cov[0], a_cov_ar[1]);
+        Tensor<1, spacedim> a3_t_ds = cross_product_3d(a_cov_as[0], a_cov[1]) + cross_product_3d(a_cov[0], a_cov_as[1]);
         double a3_bar_dr = scalar_product(a3_t, a3_t_dr)/a3_bar;
         double a3_bar_ds = scalar_product(a3_t, a3_t_ds)/a3_bar;
         
@@ -1043,19 +812,14 @@ public:
         a3_ds = a3_t_ds / a3_bar - a3_bar_ds * a3_t/ (a3_bar * a3_bar);
         a3_drs = a3_t_drs / a3_bar - a3_bar_drs * a3_t /(a3_bar * a3_bar) - a3_bar_dr * a3_t_ds / (a3_bar * a3_bar) - a3_bar_ds * a3_t_dr / (a3_bar * a3_bar) + 2 * a3_bar_dr * a3_bar_ds * a3_t / (a3_bar * a3_bar * a3_bar);
         
-        l3_dr = -(a3_bar_ref) * std::pow(a3_bar,-2) * a3_bar_dr;
-        l3_ds = -(a3_bar_ref) * std::pow(a3_bar,-2) * a3_bar_ds;
-                
         for (unsigned int ia = 0; ia < dim; ++ia) {
             for (unsigned int ib = 0; ib < dim; ++ib) {
                 membrane_strain_dr[ia][ib] = 0.5 * ( scalar_product( a_cov_ar[ia], a_cov[ib]) +  scalar_product( a_cov_ar[ib], a_cov[ia]) );
                 membrane_strain_ds[ia][ib] = 0.5 * ( scalar_product( a_cov_as[ia], a_cov[ib]) +  scalar_product( a_cov_as[ib], a_cov[ia]) );
                 membrane_strain_drs[ia][ib] = 0.5 * ( scalar_product( a_cov_ar[ia], a_cov_as[ib]) + scalar_product( a_cov_ar[ib], a_cov_as[ia]) );
                 
-//                bending_strain_dr[ia][ib] = - ( scalar_product(a_cov_abr[ia][ib], a_cov[2]) + scalar_product(da_cov[ia][ib], a3_dr) );
-                bending_strain_dr[ia][ib] = - l3 * ( scalar_product(a_cov_abr[ia][ib], a_cov[2]) + scalar_product(da_cov[ia][ib], a3_dr) ) - l3_dr *(da_cov[ia][ib] * a_cov[2]);
-//                bending_strain_ds[ia][ib] = - ( scalar_product(a_cov_abs[ia][ib], a_cov[2]) + scalar_product(da_cov[ia][ib], a3_ds) );
-                bending_strain_ds[ia][ib] = - l3 * ( scalar_product(a_cov_abs[ia][ib], a_cov[2]) + scalar_product(da_cov[ia][ib], a3_ds) ) - l3_ds *(da_cov[ia][ib] * a_cov[2]);
+                bending_strain_dr[ia][ib] = - ( scalar_product(a_cov_abr[ia][ib], a_cov[2]) + scalar_product(da_cov[ia][ib], a3_dr) );
+                bending_strain_ds[ia][ib] = - ( scalar_product(a_cov_abs[ia][ib], a_cov[2]) + scalar_product(da_cov[ia][ib], a3_ds) );
                 bending_strain_drs[ia][ib] = - ( scalar_product(a_cov_abr[ia][ib], a3_ds) + scalar_product(a_cov_abs[ia][ib], a3_dr) + scalar_product(da_cov[ia][ib], a3_drs) );
             }
         }
@@ -1073,7 +837,6 @@ public:
     Tensor<1,spacedim> get_r_r(){return r_r;};
     Tensor<1,spacedim> get_u_s(){return u_s;};
     Tensor<1,spacedim> get_r_s(){return r_s;};
-    Tensor<1,spacedim> get_a3_t_ds(){return a3_t_ds;};
     
 private:
     const double i_shape;
@@ -1083,13 +846,8 @@ private:
     const Tensor<1, dim> j_shape_deriv;
     const Tensor<2, dim> j_shape_deriv2;
     const Tensor<2, spacedim> a_cov;
-    const Tensor<2, spacedim> a_cov_ref;
     const Tensor<2, dim, Tensor<1,spacedim>> da_cov;
     const unsigned int r,s;
-    
-    double l3;
-    double l3_dr;
-    double l3_ds;
     
     Tensor<1, dim, Tensor<1, spacedim>> a_cov_ar;
     Tensor<2, dim, Tensor<1, spacedim>> a_cov_abr;
@@ -1107,8 +865,6 @@ private:
     
     Tensor<1, spacedim> a3_dr;
     Tensor<1, spacedim> a3_ds;
-    Tensor<1, spacedim> a3_t_dr;
-    Tensor<1, spacedim> a3_t_ds;
     Tensor<1, spacedim> a3_drs;
     
     Tensor<1,spacedim> u_r, r_r, u_s, r_s;
@@ -1125,15 +881,15 @@ public:
     void run();
 private:
     void   setup_system();
-    void   assemble_system(const bool first_load_step = false, const bool first_newton_step = false);
+    void   assemble_system(const bool initial_step = false);
     void   assemble_boundary_mass_matrix_and_rhs();
-    void   solve(const bool first_load_step = false);
+    void   solve();
     void   initialise_data(hp::FEValues<dim,spacedim> hp_fe_values);
     double get_error_residual();
     void   nonlinear_solver(const bool initial_step = false);
     void   make_constrains(const unsigned int newton_iteration);
-    
-    //    Triangulation<dim,spacedim> mesh;
+
+//    Triangulation<dim,spacedim> mesh;
     hp::DoFHandler<dim,spacedim> dof_handler;
     hp::FECollection<dim,spacedim> fe_collection;
     hp::MappingCollection<dim,spacedim> mapping_collection;
@@ -1141,51 +897,31 @@ private:
     hp::QCollection<dim> boundary_q_collection;
     SparsityPattern      sparsity_pattern;
     AffineConstraints<double> constraints;
-    std::vector<PointHistory_MR<dim,spacedim>>  quadrature_point_history;
-    //    std::vector<PointHistory<dim,spacedim>>  quadrature_point_history;
+    std::vector<PointHistory<dim,spacedim>>  quadrature_point_history;
     std::string material_type = "neo_hookean";
     SparseMatrix<double> tangent_matrix;
     SparseMatrix<double> boundary_mass_matrix;
-    Vector<double> solution_newton_update;
-    double pressure_newton_update;
+    Vector<double> newton_update;
     Vector<double> present_solution;
-    double present_pressure;
-    Vector<double> solution_increment_newton_step;
-    Vector<double> solution_increment_load_step;
-    double pressure_increment_newton_step;
-    double pressure_increment_load_step;
+    Vector<double> solution_increment;
     Vector<double> internal_force_rhs;
     Vector<double> external_force_rhs;
-    Vector<double> residual_vector;
-    double lambda;
+    Vector<double> force_rhs;
     Vector<double> boundary_value_rhs;
     Vector<double> boundary_edge_load_rhs;
-    Vector<double> a_vector;
-    double reference_pressure_VTV;
-    double b,A;
-    
-    
+
+
     Vector<double> vec_values;
     std::vector<types::global_dof_index> constrained_dof_indices;
-    //    std::vector<types::global_dof_index> fix_dof_indices;
+    std::vector<types::global_dof_index> fix_dof_indices;
     double f_load;
     double u_load;
     unsigned int total_q_points;
-    const double tolerance = 1e-6;
-    //    const double thickness = 0.2;
-    const double thickness = 0.5;
-    //    const double mu = 4.225e5, c_1 = 0.4375*mu, c_2 = 0.0625*mu;
-    //    const double mu = 4.225e5, c_1 = 0.5*mu, c_2 = 0.;
-    const double mu = 80, c_1 = mu, c_2 = 0.25 * c_1;
-    
-    //    const double mu = 4.225e5;
+    const double tolerance = 1e-9;
+    const double thickness = 1e-3;
+    const double mu = 0.4225e6, c_1 = 0.4375*mu, c_2 = 0.0625*mu;
     const QGauss<dim-1> Qthickness = QGauss<dim-1>(2);
     const double penalty_factor = 10e30;
-    const double reference_pressure = 10;
-    const unsigned int max_load_step = 30;
-    const unsigned int max_newton_step = 20;
-    double psi_1 = 0.1,psi_2 = 1, radius;
-    bool converged = false;
 };
 
 
@@ -1283,29 +1019,13 @@ Triangulation<dim,spacedim> set_mesh( std::string type )
         }
         mesh.set_all_manifold_ids(0);
         mesh.set_manifold (0, surface_description);
-        mesh.refine_global(3);
-        GridTools::scale(10., mesh);
+        mesh.refine_global(2);
+//        GridTools::scale(10., mesh);
     }else if (type == "cooks_membrane")
     {
         cooks_membrane(mesh);
         GridTools::scale(1e-3, mesh);
-        //        mesh.refine_global(1);
-    }else if (type == "circle")
-    {
-        Triangulation<dim> mesh_2d;
-        GridGenerator::hyper_ball(mesh_2d);
-        mesh_2d.refine_global(2);
-        std::ofstream circle_plate("1_circle_plate.msh");
-        GridOut().write_msh (mesh_2d, circle_plate);
-        std::string mfile = "1_circle_plate.msh";
-        GridIn<2,3> grid_in;
-        grid_in.attach_triangulation(mesh);
-        std::ifstream file(mfile.c_str());
-        Assert(file, ExcFileNotOpen(mfile.c_str()));
-        grid_in.read_msh(file);
-        GridTools::scale(7.7, mesh);
-//        GridTools::scale(7.55, mesh);`
-
+//        mesh.refine_global(1);
     }
     std::cout << "   Number of active cells: " << mesh.n_active_cells()
     << std::endl
@@ -1319,12 +1039,12 @@ Triangulation<dim,spacedim> set_mesh( std::string type )
 
 template <int dim, int spacedim>
 double Nonlinear_shell<dim, spacedim> :: get_error_residual(){
-    //    auto residual = force_rhs;
+//    auto residual = force_rhs;
     for (unsigned int ic = 0; ic < constrained_dof_indices.size(); ++ic) {
-        residual_vector[constrained_dof_indices[ic]] = 0;
+        force_rhs[constrained_dof_indices[ic]] = 0;
     }
-    //    std::cout << "residual vector = " << force_rhs << std::endl;
-    return residual_vector.l2_norm();
+//    std::cout << "residual vector = " << force_rhs << std::endl;
+    return force_rhs.l2_norm();
 }
 
 
@@ -1336,23 +1056,25 @@ void Nonlinear_shell<dim, spacedim> :: setup_system()
     std::cout << "   Number of dofs: " << dof_handler.n_dofs()
     << std::endl;
     DynamicSparsityPattern dynamic_sparsity_pattern(dof_handler.n_dofs());
-    //    constraints.clear();
+//    constraints.clear();
     DoFTools::make_sparsity_pattern(dof_handler, dynamic_sparsity_pattern, constraints);
     sparsity_pattern.copy_from(dynamic_sparsity_pattern);
     std::ofstream out("CC_sparsity_pattern.svg");
     sparsity_pattern.print_svg(out);
     tangent_matrix.reinit(sparsity_pattern);
     boundary_mass_matrix.reinit(sparsity_pattern);
-    solution_increment_newton_step.reinit(dof_handler.n_dofs());
+    solution_increment.reinit(dof_handler.n_dofs());
     internal_force_rhs.reinit(dof_handler.n_dofs());
     external_force_rhs.reinit(dof_handler.n_dofs());
     present_solution.reinit(dof_handler.n_dofs());
-    solution_newton_update.reinit(dof_handler.n_dofs());
+    newton_update.reinit(dof_handler.n_dofs());
     boundary_value_rhs.reinit(dof_handler.n_dofs());
     boundary_edge_load_rhs.reinit(dof_handler.n_dofs());
-    solution_increment_load_step.reinit(dof_handler.n_dofs());
-}
 
+    f_load = 0.05;
+    u_load = 0.;
+}
+ 
 
 
 template <int dim, int spacedim>
@@ -1364,8 +1086,30 @@ void Nonlinear_shell<dim, spacedim> :: initialise_data(hp::FEValues<dim,spacedim
         hp_fe_values.reinit(cell);
         const FEValues<dim,spacedim> &fe_values = hp_fe_values.get_present_fe_values();
         total_q_points += fe_values.n_quadrature_points;
+//        for (unsigned int ivert = 0; ivert < GeometryInfo<dim>::vertices_per_cell; ++ivert)
+//        {
+//            if(cell->vertex(ivert)[0] == 0 || cell->vertex(ivert)[0] == 2 || cell->vertex(ivert)[1] == 0 || cell->vertex(ivert)[1] == 2 )
+//            {
+//                unsigned int dof_id = cell->vertex_dof_index(ivert,0, cell->active_fe_index());
+//                fix_dof_indices.push_back(dof_id);
+//                fix_dof_indices.push_back(dof_id+1);
+//                fix_dof_indices.push_back(dof_id+2);
+//            }
+//        }
     }
+    
+//    std::sort(fix_dof_indices.begin(), fix_dof_indices.end());
+//    auto last = std::unique(fix_dof_indices.begin(), fix_dof_indices.end());
+//    fix_dof_indices.erase(last, fix_dof_indices.end());
+//    std::cout << "number of fixed dof indices = " <<fix_dof_indices.size()<<std::endl;
+//    for (unsigned int idof = 0; idof <fix_dof_indices.size(); ++idof) {
+//        constraints.add_line(fix_dof_indices[idof]);
+//        std::cout << fix_dof_indices[idof]<<" ";
+//    }
+//    std::cout <<std::endl;
+    
     quadrature_point_history.resize(total_q_points);
+
     unsigned int history_index = 0;
     for (const auto &cell : dof_handler.active_cell_iterators()){
         hp_fe_values.reinit(cell);
@@ -1380,7 +1124,7 @@ void Nonlinear_shell<dim, spacedim> :: initialise_data(hp::FEValues<dim,spacedim
 
 
 template <int dim, int spacedim>
-void Nonlinear_shell<dim, spacedim> :: assemble_system(const bool first_load_step, const bool first_newton_step)
+void Nonlinear_shell<dim, spacedim> :: assemble_system(const bool initial_step)
 {
     hp::FEValues<dim,spacedim> hp_fe_values(mapping_collection, fe_collection, q_collection,update_values|update_quadrature_points|update_jacobians|update_jacobian_grads|update_inverse_jacobians| update_gradients|update_hessians|update_jacobian_pushed_forward_grads|update_JxW_values|update_normal_vectors);
     
@@ -1389,15 +1133,15 @@ void Nonlinear_shell<dim, spacedim> :: assemble_system(const bool first_load_ste
     Vector<double>     cell_external_force_rhs;
     std::vector<types::global_dof_index> local_dof_indices;
     
-    if(first_load_step == true && first_newton_step == true){
+    if(initial_step == true){
         initialise_data(hp_fe_values);
     }
+    bool load = false;
     double area = 0;
-    double volume = 0.;
-
     for (const auto &cell : dof_handler.active_cell_iterators())
     {
         const unsigned int dofs_per_cell = cell->get_fe().dofs_per_cell;
+//        std::cout << "cell " << cell->index() << " dofs_per_cell = "<< dofs_per_cell << std::endl;
         local_dof_indices.resize(dofs_per_cell);
         cell->get_dof_indices(local_dof_indices);
         
@@ -1411,54 +1155,47 @@ void Nonlinear_shell<dim, spacedim> :: assemble_system(const bool first_load_ste
         cell_external_force_rhs.reinit(dofs_per_cell);
         cell_external_force_rhs = 0;
         
-        //        PointHistory<dim,spacedim> *lqph = reinterpret_cast<PointHistory<dim,spacedim>*>(cell->user_pointer());
-        PointHistory_MR<dim,spacedim> *lqph = reinterpret_cast<PointHistory_MR<dim,spacedim>*>(cell->user_pointer());
+        PointHistory<dim,spacedim> *lqph = reinterpret_cast<PointHistory<dim,spacedim>*>(cell->user_pointer());
         Assert(lqph >= &quadrature_point_history.front(), ExcInternalError());
         Assert(lqph <= &quadrature_point_history.back(), ExcInternalError());
         
         for (unsigned int q_point = 0; q_point < fe_values.n_quadrature_points;
              ++q_point)
         {
-            const Point<spacedim> qpt_ref = fe_values.quadrature_point(q_point);
-            // covariant base  a_1, a_2, a_3;
-            Tensor<2, spacedim> a_cov_ref; // a_i = x_{,i} , i = 1,2,3
-            // derivatives of covariant base;
-            Tensor<2, dim, Tensor<1,spacedim>> da_cov_ref; // a_{i,j} = x_{,ij} , i,j = 1,2
-            auto jacobian_ref = fe_values.jacobian(q_point);
-            
-            for (unsigned int id = 0; id < spacedim; ++id){
-                a_cov_ref[0][id] = jacobian_ref[id][0];
-                a_cov_ref[1][id] = jacobian_ref[id][1];
-            }
-            a_cov_ref[2] = cross_product_3d(a_cov_ref[0], a_cov_ref[1]);
-            double detJ_ref = a_cov_ref[2].norm();
-            a_cov_ref[2] = a_cov_ref[2]/detJ_ref;
-            
-            auto jacobian_grad_ref = fe_values.jacobian_grad(q_point);
-            for (unsigned int jj = 0; jj < dim; ++jj)
-            {
-                for (unsigned int kk = 0; kk < spacedim; ++kk)
-                {
-                    da_cov_ref[0][jj][kk] = jacobian_grad_ref[kk][0][jj];
-                    da_cov_ref[1][jj][kk] = jacobian_grad_ref[kk][1][jj];
-                }
-            }
-            if(first_load_step == true && first_newton_step == true){
-                lqph[q_point].setup_cell_qp(thickness, a_cov_ref, da_cov_ref, c_1, c_2);
-                //                lqph[q_point].setup_cell_qp(thickness, a_cov_ref, da_cov_ref, mu);
-                lqph[q_point].set_jxw_reference(fe_values.JxW(q_point));
-                lqph[q_point].set_reference_position(qpt_ref);
+                // covariant base  a_1, a_2, a_3;
+                Tensor<2, spacedim> a_cov_ref; // a_i = x_{,i} , i = 1,2,3
+                // derivatives of covariant base;
+                Tensor<2, dim, Tensor<1,spacedim>> da_cov_ref; // a_{i,j} = x_{,ij} , i,j = 1,2
+                auto jacobian_ref = fe_values.jacobian(q_point);
                 
+                for (unsigned int id = 0; id < spacedim; ++id){
+                    a_cov_ref[0][id] = jacobian_ref[id][0];
+                    a_cov_ref[1][id] = jacobian_ref[id][1];
+                }
+                a_cov_ref[2] = cross_product_3d(a_cov_ref[0], a_cov_ref[1]);
+                double detJ_ref = a_cov_ref[2].norm();
+                a_cov_ref[2] = a_cov_ref[2]/detJ_ref;
+                
+                auto jacobian_grad_ref = fe_values.jacobian_grad(q_point);
+                for (unsigned int jj = 0; jj < dim; ++jj)
+                {
+                    for (unsigned int kk = 0; kk < spacedim; ++kk)
+                    {
+                        da_cov_ref[0][jj][kk] = jacobian_grad_ref[kk][0][jj];
+                        da_cov_ref[1][jj][kk] = jacobian_grad_ref[kk][1][jj];
+                    }
+                }
+            if(initial_step == true){
+                lqph[q_point].setup_cell_qp(thickness, a_cov_ref, da_cov_ref, mu);
             }
             
             std::vector<double> shape_vec(dofs_per_cell);
             std::vector<Tensor<1, dim>> shape_der_vec(dofs_per_cell);
             std::vector<Tensor<2, dim>> shape_der2_vec(dofs_per_cell);
             
-            Tensor<1,spacedim> delta_u; // u_{,a}
-            Tensor<1, dim, Tensor<1,spacedim>> delta_u_der; // u_{,a}
-            Tensor<2, dim, Tensor<1,spacedim>> delta_u_der2; // u_{,ab}
-            Point<spacedim> qpt_def = qpt_ref;
+            Tensor<1, dim, Tensor<1,spacedim>> u_der; // u_{,a}
+            Tensor<2, dim, Tensor<1,spacedim>> u_der2; // u_{,ab}
+            
             for (unsigned int i_shape = 0; i_shape < dofs_per_cell; ++i_shape) {
                 // compute first and second grad of i_shape function
                 double i_shape_vlaue = fe_values.shape_value(i_shape, q_point);
@@ -1481,33 +1218,25 @@ void Nonlinear_shell<dim, spacedim> :: assemble_system(const bool first_load_ste
                 shape_vec[i_shape] = i_shape_vlaue;
                 shape_der_vec[i_shape] = i_shape_der;
                 shape_der2_vec[i_shape] = i_shape_der2;
-                delta_u[i_shape%3] += i_shape_vlaue * solution_increment_newton_step(local_dof_indices[i_shape]);
-                if(first_newton_step == true){
-                    delta_u[i_shape%3] += i_shape_vlaue * solution_increment_load_step(local_dof_indices[i_shape]);
-                }
                 for (unsigned int ia = 0; ia < dim; ++ia){
-                    delta_u_der[ia][i_shape%3] += i_shape_der[ia] * solution_increment_newton_step(local_dof_indices[i_shape]); // u_{,a} = sum N^A_{,a} * U_A
-                    if(first_newton_step == true){delta_u_der[ia][i_shape%3] += i_shape_der[ia] * solution_increment_load_step(local_dof_indices[i_shape]);} // u_{,a} = sum N^A_{,a} * U_A
-                    
+                    u_der[ia][i_shape%3] += i_shape_der[ia] * solution_increment(local_dof_indices[i_shape]); // u_{,a} = sum N^A_{,a} * U_A
                     for (unsigned int ib = 0; ib < dim; ++ib){
-                        delta_u_der2[ia][ib][i_shape%3] += i_shape_der2[ia][ib] * solution_increment_newton_step(local_dof_indices[i_shape]); // u_{,ab} = sum N^A_{,ab} * U_A
-                        if(first_newton_step == true){delta_u_der2[ia][ib][i_shape%3] += i_shape_der2[ia][ib] * solution_increment_load_step(local_dof_indices[i_shape]);}
+                        u_der2[ia][ib][i_shape%3] += i_shape_der2[ia][ib] * solution_increment(local_dof_indices[i_shape]); // u_{,ab} = sum N^A_{,ab} * U_A
                     }
                 }
             }
-            if (first_load_step == false || first_newton_step == false) {lqph[q_point].update_cell_qp(delta_u_der,delta_u_der2);
-                lqph[q_point].update_qp_displacement(delta_u);
-            }
+            
+            if (initial_step == false) {lqph[q_point].update_cell_qp(u_der,u_der2);}
             
             std::pair<std::vector<Tensor<2,dim>>, std::vector<Tensor<4,dim>>> integral_tensors = lqph[q_point].get_integral_tensors();
             std::vector<Tensor<2,dim>> resultants = integral_tensors.first;
             Tensor<4,dim> D0 = integral_tensors.second[0];
             Tensor<4,dim> D1 = integral_tensors.second[1];
             Tensor<4,dim> D2 = integral_tensors.second[2];
-            Tensor<2, spacedim> a_cov_def = lqph[q_point].get_deformed_covariant_bases();
-            double detJ_def = cross_product_3d(a_cov_def[0], a_cov_def[1]).norm();
-            Tensor<2, dim, Tensor<1,spacedim>> da_cov_def = lqph[q_point].get_deformed_covariant_bases_deriv();
             
+            Tensor<2, spacedim> a_cov_def = lqph[q_point].get_deformed_covariant_bases();
+            Tensor<2, dim, Tensor<1,spacedim>> da_cov_def = lqph[q_point].get_deformed_covariant_bases_deriv();
+
             for (unsigned int r_shape = 0; r_shape < dofs_per_cell; ++r_shape) {
                 double shape_r = shape_vec[r_shape];
                 Tensor<1, dim> shape_r_der = shape_der_vec[r_shape];
@@ -1516,23 +1245,20 @@ void Nonlinear_shell<dim, spacedim> :: assemble_system(const bool first_load_ste
                 Tensor<1,spacedim> u_r;
                 Tensor<2, dim> membrane_strain_dr;
                 Tensor<2, dim> bending_strain_dr;
-                Tensor<1,spacedim> a3_t_s;
                 
                 for (unsigned int s_shape = 0; s_shape < dofs_per_cell; ++s_shape) {
                     double shape_s = shape_vec[s_shape];
                     Tensor<1, dim> shape_s_der = shape_der_vec[s_shape];
                     Tensor<2, dim> shape_s_der2 = shape_der2_vec[s_shape];
                     
-                    tangent_derivatives<dim,spacedim> T_derivs(shape_r, shape_r_der, shape_r_der2, shape_s, shape_s_der, shape_s_der2, a_cov_def, a_cov_ref, da_cov_def, r_shape, s_shape);
+                    tangent_derivatives<dim,spacedim> T_derivs(shape_r, shape_r_der, shape_r_der2, shape_s, shape_s_der, shape_s_der2, a_cov_def, da_cov_def, r_shape, s_shape);
                     u_r = T_derivs.get_u_r();
-                    a3_t_s = T_derivs.get_a3_t_ds();
                     membrane_strain_dr = T_derivs.get_membrane_strain_dr();
                     bending_strain_dr  = T_derivs.get_bending_strain_dr();
                     Tensor<2, dim> membrane_strain_ds  = T_derivs.get_membrane_strain_ds();
                     Tensor<2, dim> bending_strain_ds   = T_derivs.get_bending_strain_ds();
                     Tensor<2, dim> membrane_strain_drs = T_derivs.get_membrane_strain_drs();
                     Tensor<2, dim> bending_strain_drs  = T_derivs.get_bending_strain_drs();
-                    
                     
                     for (unsigned int ia = 0; ia < dim; ++ia) {
                         for (unsigned int ib = 0; ib < dim; ++ib) {
@@ -1543,36 +1269,52 @@ void Nonlinear_shell<dim, spacedim> :: assemble_system(const bool first_load_ste
                                                                               + bending_strain_dr[ia][ib] * D1[ia][ib][ic][id] * membrane_strain_ds[ic][id]
                                                                               + membrane_strain_dr[ia][ib] * D1[ia][ib][ic][id] * bending_strain_ds[ic][id]
                                                                               + bending_strain_dr[ia][ib] * D2[ia][ib][ic][id] * bending_strain_ds[ic][id])
-                                    * fe_values.JxW(q_point);
+                                                                            * fe_values.JxW(q_point);
                                 }
                             }
                         }
                     }
-                    // following pressure load
-                    cell_tangent_matrix[r_shape][s_shape] -= (lambda + pressure_increment_load_step) * reference_pressure * scalar_product(a3_t_s, u_r) * (1./detJ_ref) * fe_values.JxW(q_point);
                 }
                 for (unsigned int ia = 0; ia < dim; ++ia) {
                     for (unsigned int ib = 0; ib < dim; ++ib) {
                         cell_internal_force_rhs[r_shape] += (membrane_strain_dr[ia][ib] * resultants[0][ia][ib] + bending_strain_dr[ia][ib] * resultants[1][ia][ib]) * fe_values.JxW(q_point); // f^int
                     }
                 }
-                cell_external_force_rhs[r_shape] += reference_pressure * scalar_product(a_cov_def[2], u_r) * (detJ_def/detJ_ref) * fe_values.JxW(q_point); //  f^ex
+//                cell_external_force_rhs[r_shape] += f_load * scalar_product(a_cov_def[2], u_r) * fe_values.JxW(q_point); // p = 1. f^ext;
             }
-            area += (detJ_def/detJ_ref) * fe_values.JxW(q_point);
-            volume += std::abs(fe_values.quadrature_point(q_point)[2]) * (detJ_def/detJ_ref) * fe_values.JxW(q_point);
-
+            area += fe_values.JxW(q_point);
         }// loop over surface quadrature points
         internal_force_rhs.add(local_dof_indices, cell_internal_force_rhs);
-        external_force_rhs.add(local_dof_indices, cell_external_force_rhs);
+//        external_force_rhs.add(local_dof_indices, cell_external_force_rhs);
         tangent_matrix.add(local_dof_indices, local_dof_indices, cell_tangent_matrix);
+        
+//        if (load == false) {
+//            for (unsigned int ivert = 0; ivert < 4; ++ivert) {
+//                if( cell->vertex(ivert)[0] == 48 && cell->vertex(ivert)[1] == 52 ){
+//                    load = true;
+//                    for (unsigned int idof = 0; idof < dofs_per_cell/spacedim; ++idof) {
+//                        double shape = 0;
+//                        unsigned int vert_dof_id = cell->vertex_dof_index(ivert,0, cell->active_fe_index());
+//
+//                        if (vert_dof_id == local_dof_indices[0]) {
+//                            shape = cell->get_fe().shape_value(idof*spacedim, {0,0});
+//                        }else if (vert_dof_id == local_dof_indices[3]){
+//                            shape = cell->get_fe().shape_value(idof*spacedim, {1,0});
+//                        }else if (vert_dof_id == local_dof_indices[6]){
+//                            shape = cell->get_fe().shape_value(idof*spacedim, {0,1});
+//                        }else if (vert_dof_id == local_dof_indices[9]){
+//                            shape = cell->get_fe().shape_value(idof*spacedim, {1,1});
+//                        }
+//                        cell_external_force_rhs(idof*spacedim + 1) += f_load * shape;
+//                    }
+//                }
+//            }
+//        }
+//        external_force_rhs.add(local_dof_indices, cell_external_force_rhs);
     } // loop over cells
-    // K \Delta u = - Residual vector
-    // Residual vector = f^int - lambda * f^ext
-    residual_vector =  (lambda + pressure_increment_load_step) * external_force_rhs - internal_force_rhs;
-    a_vector = 2 * psi_2 * solution_increment_load_step;
-    b = 2 * psi_1 * pressure_increment_load_step * VTV(external_force_rhs);
-    A = psi_2 * VTV(solution_increment_load_step) + psi_1 * pressure_increment_load_step * pressure_increment_load_step * VTV(external_force_rhs) - radius * radius;
-    std::cout << "A = " << A <<std::endl;
+    // K \Delta u = -R
+    // Residual vector = f^int - f^ext
+    force_rhs = external_force_rhs - internal_force_rhs;
 }
 
 
@@ -1583,7 +1325,6 @@ void Nonlinear_shell<dim, spacedim>::assemble_boundary_mass_matrix_and_rhs()
     boundary_mass_matrix = 0;
     boundary_value_rhs = 0;
     boundary_edge_load_rhs = 0;
-    double tol = 1e-9;
     hp::FEValues<dim,spacedim> hp_fe_boundary_values(mapping_collection, fe_collection, boundary_q_collection, update_values|update_quadrature_points|update_jacobians|update_jacobian_grads|update_inverse_jacobians| update_gradients|update_hessians|update_jacobian_pushed_forward_grads|update_JxW_values|update_normal_vectors);
     
     FullMatrix<double> cell_b_mass_matrix;
@@ -1602,24 +1343,14 @@ void Nonlinear_shell<dim, spacedim>::assemble_boundary_mass_matrix_and_rhs()
         cell_b_rhs.reinit(dofs_per_cell);
         cell_load_rhs.reinit(dofs_per_cell);
         cell_b_mass_matrix = 0; cell_b_rhs = 0; cell_load_rhs = 0;
-        //        std::cout << "cell " << cell->active_cell_index() << " has "<< b_fe_values.n_quadrature_points <<" boundary qpts."<< std::endl;
-        for (unsigned int ivert = 0; ivert < GeometryInfo<dim>::vertices_per_cell; ++ivert)
-        {
-//            if(std::abs(cell->vertex(ivert).norm() - 7.55) < tol){
-            if(std::abs(cell->vertex(ivert).norm() - 7.7) < tol){
-                unsigned int dof_id = cell->vertex_dof_index(ivert,0, cell->active_fe_index());
-                constrained_dof_indices.push_back(dof_id);
-                constrained_dof_indices.push_back(dof_id+1);
-                constrained_dof_indices.push_back(dof_id+2);
-            }
-        }
+//        std::cout << "cell " << cell->active_cell_index() << " has "<< b_fe_values.n_quadrature_points <<" boundary qpts."<< std::endl;
         if (b_fe_values.n_quadrature_points != 1)
         {
             for (unsigned int q_point = 0; q_point < b_fe_values.n_quadrature_points;
                  ++q_point)
             {
                 Point<spacedim> qpt = b_fe_values.quadrature_point(q_point);
-                //                std::cout << "gauss point " << q_point << " = "<< b_fe_values.get_quadrature().point(q_point) << " weight = " << b_fe_values.get_quadrature().weight(q_point) << " qpt = " << qpt << std::endl;
+//                std::cout << "gauss point " << q_point << " = "<< b_fe_values.get_quadrature().point(q_point) << " weight = " << b_fe_values.get_quadrature().weight(q_point) << " qpt = " << qpt << std::endl;
                 // covariant base  a_1, a_2, a_3;
                 Tensor<2, spacedim> a_cov; // a_i = x_{,i} , i = 1,2,3
                 auto jacobian_ref = b_fe_values.jacobian(q_point);
@@ -1628,8 +1359,9 @@ void Nonlinear_shell<dim, spacedim>::assemble_boundary_mass_matrix_and_rhs()
                     a_cov[0][id] = jacobian_ref[id][0];
                     a_cov[1][id] = jacobian_ref[id][1];
                 }
-                //                if (qpt[0] < tol|| qpt[0] - 2 <tol || qpt[1] < tol || qpt[1] - 2 < 1e-9) {
-                if (std::abs(qpt[0]) < tol || std::abs(qpt[1]) < tol || std::abs(qpt[2]) < tol) {
+                double tol = 1e-12;
+//                if (qpt[0] < tol|| qpt[0] - 2 <tol || qpt[1] < tol || qpt[1] - 2 < 1e-9) {
+                if (std::abs(qpt[0]) < tol) {
                     double jxw;
                     
                     if (b_fe_values.get_quadrature().point(q_point)[0] == 0 ) {
@@ -1637,36 +1369,48 @@ void Nonlinear_shell<dim, spacedim>::assemble_boundary_mass_matrix_and_rhs()
                     }else if (b_fe_values.get_quadrature().point(q_point)[1] == 0 ){
                         jxw = a_cov[0].norm() * b_fe_values.get_quadrature().weight(q_point);
                     }
-                    //                    boundary_length += jxw;
+//                    boundary_length += jxw;
                     
                     for (unsigned int i_shape = 0; i_shape < dofs_per_cell; ++i_shape) {
-                        if ( b_fe_values.shape_value(i_shape, q_point) > tol) {
+                        if (((std::abs(qpt[0]) < tol ) ) && b_fe_values.shape_value(i_shape, q_point) > tol) {
                             constrained_dof_indices.push_back(local_dof_indices[i_shape]);
                             for (unsigned int j_shape = 0; j_shape < dofs_per_cell; ++j_shape) {
-                                if (std::abs(qpt[0]) < tol && b_fe_values.shape_value(j_shape, q_point) > tol) {
-                                    if (i_shape%3 == j_shape%3 && i_shape%3 == 0){
-                                        cell_b_mass_matrix[i_shape][j_shape] += b_fe_values.shape_value(i_shape, q_point) * b_fe_values.shape_value(j_shape, q_point) * jxw;
-                                    }
-                                }
-                                if (std::abs(qpt[1]) < tol && b_fe_values.shape_value(j_shape, q_point) > tol) {
-                                    if (i_shape%3 == j_shape%3 && i_shape%3 == 1){
-                                        cell_b_mass_matrix[i_shape][j_shape] += b_fe_values.shape_value(i_shape, q_point) * b_fe_values.shape_value(j_shape, q_point) * jxw;
-                                    }
-                                }
-                                if (std::abs(qpt[2]) < tol && b_fe_values.shape_value(j_shape, q_point) > tol) {
-                                    if (i_shape%3 == j_shape%3 && i_shape%3 == 2){
-                                        cell_b_mass_matrix[i_shape][j_shape] += b_fe_values.shape_value(i_shape, q_point) * b_fe_values.shape_value(j_shape, q_point) * jxw;
-                                    }
+                                if (i_shape%3 == j_shape%3){
+                                    cell_b_mass_matrix[i_shape][j_shape] += b_fe_values.shape_value(i_shape, q_point) * b_fe_values.shape_value(j_shape, q_point) * jxw;
                                 }
                             }
+                        }
+                        
+//                        for (unsigned int j_shape = 0; j_shape < dofs_per_cell; ++j_shape) {
+//                            if ((std::abs(qpt[0]) < tol || std::abs(qpt[0] - 2) < tol ) && i_shape%3 == j_shape%3 && i_shape%3 != 1){
+//                                cell_b_mass_matrix[i_shape][j_shape] += b_fe_values.shape_value(i_shape, q_point) * b_fe_values.shape_value(j_shape, q_point) * jxw;
+//                            }
+//                            if (std::abs(qpt[1]) < tol && i_shape%3 == j_shape%3 && i_shape%3 != 0){
+//                                cell_b_mass_matrix[i_shape][j_shape] += b_fe_values.shape_value(i_shape, q_point) * b_fe_values.shape_value(j_shape, q_point) * jxw;
+//                            }
+//                        }
+                    }
+                }
+                
+                if(std::abs(qpt[0] - 48e-3) < tol){
+                    for (unsigned int i_shape = 0; i_shape < dofs_per_cell; ++i_shape) {
+                        double jxw;
+                        if (b_fe_values.get_quadrature().point(q_point)[0] == 0 ) {
+                            jxw = a_cov[1].norm() * b_fe_values.get_quadrature().weight(q_point);
+                        }else if (b_fe_values.get_quadrature().point(q_point)[1] == 0 ){
+                            jxw = a_cov[0].norm() * b_fe_values.get_quadrature().weight(q_point);
+                        }
+                        if (i_shape%3 == 1){
+                            cell_load_rhs[i_shape] += f_load/(16e-3) * b_fe_values.shape_value(i_shape, q_point) * jxw;
                         }
                     }
                 }
             }
             boundary_mass_matrix.add(local_dof_indices, cell_b_mass_matrix);
+//            boundary_value_rhs.add(local_dof_indices, cell_b_rhs);
+            boundary_edge_load_rhs.add(local_dof_indices, cell_load_rhs);
         }
     }
-    
     std::sort(constrained_dof_indices.begin(), constrained_dof_indices.end());
     auto last = std::unique(constrained_dof_indices.begin(), constrained_dof_indices.end());
     constrained_dof_indices.erase(last, constrained_dof_indices.end());
@@ -1676,236 +1420,122 @@ void Nonlinear_shell<dim, spacedim>::assemble_boundary_mass_matrix_and_rhs()
 
 template <int dim, int spacedim>
 void Nonlinear_shell<dim, spacedim>::make_constrains(const unsigned int newton_iteration){
-    
     assemble_boundary_mass_matrix_and_rhs();
-    //        residual_vector += boundary_edge_load_rhs;
-    //        external_force_rhs += boundary_edge_load_rhs;
+    force_rhs += boundary_edge_load_rhs;
     tangent_matrix.add(penalty_factor, boundary_mass_matrix);
-    for (unsigned int idof = 0; idof <constrained_dof_indices.size(); ++idof) {
-        for (unsigned int jdof = 0; jdof <dof_handler.n_dofs(); ++jdof) {
-            if (constrained_dof_indices[idof] == jdof){
-                tangent_matrix.set(constrained_dof_indices[idof], constrained_dof_indices[idof], penalty_factor);
-            }
-            else
-            {
-                tangent_matrix.set(constrained_dof_indices[idof], jdof, 0);
-                tangent_matrix.set(jdof, constrained_dof_indices[idof], 0);
-            }
-        }
-    }
     if (newton_iteration == 0) {
-        residual_vector.add(penalty_factor, boundary_value_rhs);
-        //            external_force_rhs.add(penalty_factor, boundary_value_rhs);
+        force_rhs.add(penalty_factor, boundary_value_rhs);
     }
 }
 
 
 
 template <int dim, int spacedim>
-void Nonlinear_shell<dim, spacedim>::solve(const bool first_load_step)
+void Nonlinear_shell<dim, spacedim>::solve()
 {
-    SolverControl            solver_control(20000, 1e-8);
-    SolverCG<Vector<double>> solver(solver_control);
-    //  SolverGMRES<Vector<double>> solver(solver_control);
-    //  PreconditionSSOR<SparseMatrix<double>> preconditioner;
-    PreconditionJacobi<SparseMatrix<double>> preconditioner;
-    preconditioner.initialize(tangent_matrix);
-    const auto op_k = linear_operator(tangent_matrix);
-    const auto op_k_inv = inverse_operator(op_k, solver, preconditioner);
-    if (first_load_step == true) {
-        //        solver.solve(tangent_matrix, solution_newton_update, residual_vector, preconditioner);
-        solution_newton_update = op_k_inv * residual_vector;
-        pressure_newton_update = 0;
-    }else{
-        auto solution_1 = solution_newton_update;
-        auto solution_2 = solution_newton_update;
-        
-        solver.solve(tangent_matrix, solution_1, external_force_rhs, preconditioner);
-        solver.solve(tangent_matrix, solution_2, residual_vector, preconditioner);
-        
-        pressure_newton_update = (-VTW(a_vector, solution_2) - A)/(b + VTW(a_vector, solution_1));
-        solution_newton_update = pressure_newton_update * solution_1 + solution_2;
-        // SparseDirectUMFPACK K_direct;
-        // K_direct.initialize(tangent_matrix);
-        // K_direct.vmult(solution_1, external_force_rhs);
-        // K_direct.vmult(solution_2, residual_vector);
-        
-        // //        auto solution_1 = op_k_inv * external_force_rhs;
-        // //        auto solution_2 = op_k_inv * residual_vector;
-        // pressure_newton_update = (-VTW(a_vector, solution_2) - A)/(b + VTW(a_vector, solution_1));
-        // solution_newton_update = pressure_newton_update * solution_1 + solution_2;
-        
-    }
+//    std::cout << "boundary_value_rhs = [ ";
+//    for(unsigned int jd = 0; jd < dof_handler.n_dofs(); ++jd){
+//        std::cout << boundary_value_rhs[jd] << " ";
+//    }
+//    std::cout <<"]'"<< std::endl;
+//
+//    std::cout << "matrix = [ " << std::endl;
+//
+//    for(unsigned int id = 0; id < dof_handler.n_dofs(); ++id){
+//        for(unsigned int jd = 0; jd < dof_handler.n_dofs(); ++jd){
+//            std::cout << boundary_mass_matrix.el(id,jd) << " ";
+//        }
+//        std::cout << ";" << std::endl;
+//    }
+//    std::cout << "] " << std::endl;
+
+  SolverControl            solver_control(10000, 1e-12);
+  SolverCG<Vector<double>> solver(solver_control);
+  PreconditionSSOR<SparseMatrix<double>> preconditioner;
+  preconditioner.initialize(tangent_matrix);
+  solver.solve(tangent_matrix, newton_update, force_rhs, preconditioner);
+    
+//  SparseDirectUMFPACK A_direct;
+//  A_direct.initialize(boundary_mass_matrix);
+//  A_direct.vmult(newton_update, boundary_value_rhs);
+//  std::cout << "newton_update = " << newton_update <<std::endl;
 }
 
 
 
 template <int dim, int spacedim>
 void Nonlinear_shell<dim, spacedim> ::run()
-{   setup_system();
-    bool first_load_step;
-    for (unsigned int step = 0; step < max_load_step; ++step) {
-        std::cout << "step = "<< step << std::endl;
+{    setup_system();
+    
+    for (unsigned int step = 0; step < 20; ++step) {
+        std::cout << "step "<< step << std::endl;
         if(step == 0){
-            lambda = 0.02;
-            first_load_step = true;
+            nonlinear_solver(true);
         }else{
-            first_load_step = false;
-            if (step == 1) {
-                pressure_increment_load_step = 0.1;
-            }
+            f_load += 0.05;
+            nonlinear_solver();
         }
-        nonlinear_solver(first_load_step);
-        double l1,l2;
-        if(step == 0){
-            radius = std::sqrt(psi_2 * VTV(solution_increment_load_step) + psi_1 * lambda * lambda * reference_pressure_VTV)*4;
-            l2 = std::sqrt(psi_2 * VTV(solution_increment_load_step));
-            l1 = std::sqrt(psi_1 * lambda * lambda * reference_pressure_VTV);
-        }
-        else
-        {
-            radius = std::sqrt(psi_2 * VTV(solution_increment_load_step) + psi_1 * pressure_increment_load_step * pressure_increment_load_step * reference_pressure_VTV);
-            l2 = std::sqrt(psi_2 * VTV(solution_increment_load_step));
-            l1 = std::sqrt(psi_1 * pressure_increment_load_step * pressure_increment_load_step * reference_pressure_VTV);
-        }
-        std::cout<< " radius = " << radius <<std::endl;
-        std::cout<< " displacement_step_length = " << l2 << "\n load_step_length = " <<  l1 << std::endl;
-        //        psi_1 = (l2/l1)*(l2/l1) * psi_1;
-        present_solution += solution_increment_load_step;
-        lambda += pressure_increment_load_step;
-        //        pressure_increment_load_step = 0.1;
-        std::cout << "pressure_load = " << lambda * reference_pressure << "n/m2" <<std::endl;
-        
-        // calculate area and volume
-        double area = 0.,volume = 0.;
-        for (unsigned iq = 0; iq < quadrature_point_history.size(); ++iq) {
-            area += quadrature_point_history[iq].get_jxw_deformed();
-            Point<spacedim> qpt_ref = quadrature_point_history[iq].get_coord_reference();
-            Tensor<1, spacedim> disp =quadrature_point_history[iq].get_displacement();
-            Point<spacedim> qpt_def = qpt_ref + disp;
-            volume += std::abs(qpt_def[2]) * quadrature_point_history[iq].get_jxw_deformed();
-        }
-        std::cout << " area = "<< area << std::endl;
-        std::cout << " volume = "<< volume << std::endl;
-        
-        // vtk_plot("elec_thin_plate_0= "+std::to_string(step)+".vtu", dof_handler, mapping_collection, vec_values, present_solution, Vector<double>(), lambda * reference_pressure,area,volume);
-        // initial guess for next load step
-        //        solution_increment_load_step = solution_increment_load_step;
-        //        pressure_increment_load_step = pressure_increment_load_step;
-        //        if (pressure_increment_load_step < 0) {
-        //            radius = 4;
-        //        }
+        std::cout << "f_load = "<< f_load <<std::endl;
+        vtk_plot("cooks_membrane"+std::to_string(step)+".vtu", dof_handler, mapping_collection, vec_values, present_solution);
     }
 }
 
 template <int dim, int spacedim>
-void Nonlinear_shell<dim, spacedim> ::nonlinear_solver(const bool first_load_step){
+void Nonlinear_shell<dim, spacedim> ::nonlinear_solver(const bool initial_load_step){
+    unsigned int max_newton_iteration = 20;
     double initial_residual, residual_error;
-    bool first_newton_step;
-    for (unsigned int newton_iteration = 0; newton_iteration < max_newton_step; ++ newton_iteration)
+    for (unsigned int newton_iteration = 0; newton_iteration < max_newton_iteration; ++ newton_iteration)
     {
         std::cout << " " << std::setw(2) << newton_iteration << " " << std::endl;
         double residual_norm = 0;
-        if (newton_iteration == 0? first_newton_step = true:first_newton_step = false);
-        assemble_system(first_load_step, first_newton_step);
-        make_constrains(newton_iteration);
+        if (initial_load_step == true && newton_iteration == 0) {
+            assemble_system(true);
+            make_constrains(newton_iteration);
+        }else{
+            assemble_system();
+            make_constrains(newton_iteration);
+        }
         
-        //        LAPACKFullMatrix<double> full_tangent(dof_handler.n_dofs());
-        //        LAPACKFullMatrix<double> full_tangent_lu(dof_handler.n_dofs());
-        //        LAPACKFullMatrix<double> full_tangent_cholesky(dof_handler.n_dofs());
-        //
-        //        full_tangent = tangent_matrix;
-        //        full_tangent_lu = tangent_matrix;
-        //        full_tangent_cholesky = tangent_matrix;
-        //
-        //        FullMatrix<double>       eigenvectors;
-        //        Vector<double>           eigenvalues;
-        //        Vector<double>           eigenvec(dof_handler.n_dofs());
-        //        std::vector<Vector<double>>           eigenvecs(0);
-        //
-        //        full_tangent.compute_eigenvalues_symmetric(-1, 1000, 1e-5, eigenvalues, eigenvectors);
-        //        for(unsigned int ie = 0; ie < eigenvalues.size(); ++ie){
-        //            std::cout << eigenvalues[ie] << std::endl;
-        //            for (unsigned int idof = 0; idof < dof_handler.n_dofs(); ++idof) {
-        //                eigenvec[idof] = eigenvectors[idof][ie];
-        //            }
-        //            eigenvecs.push_back(eigenvec);
-        //        }
-        //        if (eigenvalues.size() > 0) {
-        //            if (eigenvalues[0] < 10) {
-        //                std::cout << "zero eigen value exist!" << std::endl;
-        //                vtk_plot("sphere_zero_eigen_"+std::to_string(eigenvalues[0])+".vtu", dof_handler, mapping_collection, vec_values, eigenvecs[0]);
-        //            }
-        //        }
-        //        full_tangent_lu.compute_lu_factorization();
-        //        std::cout <<"determinant = "<< full_tangent_lu.determinant() << std::endl;
-        //        if (std::abs(full_tangent_lu.determinant()) < 1e-5) {
-        //            std::cout << "singular matrix. "<< std::endl;
-        //        }
-        //        auto l1_norm = full_tangent_cholesky.l1_norm();
-        //        full_tangent_cholesky.set_property(dealii::LAPACKSupport::symmetric);
-        //        full_tangent_cholesky.compute_cholesky_factorization();
-        //        std::cout <<"reciprocal_condition_number = "<< full_tangent_cholesky.reciprocal_condition_number(l1_norm) << std::endl;
-        
-        //        std::cout << "size of eigenvectors = " << eigenvectors.size() << " " << eigenvecs.size() << std::endl;
-        //        vtk_plot("sphere_eigen_1.vtu", dof_handler, mapping_collection, vec_values, eigenvecs[0]);
-        //        vtk_plot("sphere_eigen_2.vtu", dof_handler, mapping_collection, vec_values, eigenvecs[1]);
-        //        vtk_plot("sphere_eigen_3.vtu", dof_handler, mapping_collection, vec_values, eigenvecs[2]);
-        
-        //        int n_eign = 1;
-        //        for (unsigned int i = 0; i < dof_handler.n_dofs(); ++i) {
-        //            eigenvalues[i] = full_tangent.eigenvalue(i);
-        //            if(eigenvalues[i].real() > 1.+1e-1 && n_eign < 2){
-        //                std::cout <<"Eigenvalue "<<n_eign<<" = "<<eigenvalues[i]  <<std::endl;
-        //
-        //                vtk_plot("test_eigen_solution_1_"+std::to_string(n_eign)+".vtu", dof_handler, mapping_collection, vec_values, eigenvectors[i]);
-        //                ++n_eign;
-        //            }
-        //        }
-        
-        if (first_newton_step == true) {
+        if (newton_iteration == 0) {
             std::cout << "first newton iteration " << std::endl;
             residual_error = 1.;
-        }
-        else
-        {
+        }else{
             if (newton_iteration == 1) {
                 initial_residual = get_error_residual();
             }
-            residual_norm = get_error_residual();
+             residual_norm = get_error_residual();
             residual_error = residual_norm / initial_residual;
         }
+        
+//        std::cout << "rhs vector = " << force_rhs << std::endl;
         std::cout << "residual = " << residual_norm << std::endl;
         
         if (newton_iteration != 0) {
-            std::cout << "residual_error = " << residual_error * 100 << "%" <<std::endl;
+            std::cout << "residual_error = " << residual_error*100 << "%" <<std::endl;
         }
-        
-        if ((residual_error < 1e-3 ) && solution_newton_update.l2_norm() < 1e-6) {
+
+        if ((residual_error < 1e-3 ) && newton_update.l2_norm() < 1e-9) {
             std::cout << "converged.\n";
             tangent_matrix.reinit(sparsity_pattern);
-            reference_pressure_VTV = VTV(external_force_rhs);
             internal_force_rhs.reinit(dof_handler.n_dofs());
             external_force_rhs.reinit(dof_handler.n_dofs());
-            solution_newton_update.reinit(dof_handler.n_dofs());
-            pressure_newton_update = 0;
+            newton_update.reinit(dof_handler.n_dofs());
             break;
         }else{
-            solve(first_load_step);
+//            std::ofstream out("output_matrix.txt");
+//            tangent_matrix.print(out);
+            solve();
         }
-        std::cout << "solution_newton_update_norm = " << solution_newton_update.l2_norm() <<std::endl;
-        std::cout << "pressure_newton_update = " << pressure_newton_update <<std::endl;
-        
-        solution_increment_newton_step = solution_newton_update;
-        solution_increment_load_step += solution_newton_update;
-        pressure_increment_newton_step = pressure_newton_update;
-        pressure_increment_load_step += pressure_newton_update;
+//        std::cout << "newton_update = " << newton_update <<std::endl;
+        std::cout << "newton_update_error = " << newton_update.l2_norm() <<std::endl;
+
+        solution_increment = newton_update;
+        present_solution = present_solution + newton_update;
         
         tangent_matrix.reinit(sparsity_pattern);
         internal_force_rhs.reinit(dof_handler.n_dofs());
         external_force_rhs.reinit(dof_handler.n_dofs());
-        solution_newton_update.reinit(dof_handler.n_dofs());
-        pressure_newton_update = 0;
+        newton_update.reinit(dof_handler.n_dofs());
     }
 }
 
@@ -1914,7 +1544,7 @@ void Nonlinear_shell<dim, spacedim> ::nonlinear_solver(const bool first_load_ste
 int main()
 {
     const int dim = 2, spacedim = 3;
-    Triangulation<dim,spacedim> mesh = set_mesh<dim,spacedim>("circle");
+    Triangulation<dim,spacedim> mesh = set_mesh<dim,spacedim>("cooks_membrane");
     Nonlinear_shell<dim, spacedim> nonlinear_thin_shell(mesh);
     nonlinear_thin_shell.run();
     
