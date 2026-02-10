@@ -40,7 +40,6 @@ ADD_EXECUTABLE(shell_elastic_inflation   shell_elastic_inflation.cc)
 DEAL_II_SETUP_TARGET(shell_elastic_inflation)
 TARGET_LINK_LIBRARIES(shell_elastic_inflation addition_lib ${LIBRARIES})
 
-
 ADD_EXECUTABLE(cylinder cylinder.cc)
 DEAL_II_SETUP_TARGET(cylinder)
 TARGET_LINK_LIBRARIES(cylinder addition_lib ${LIBRARIES})
@@ -60,3 +59,11 @@ TARGET_LINK_LIBRARIES(coupled_shell_tests addition_lib ${LIBRARIES})
 ADD_EXECUTABLE(capsule   capsule.cc)
 DEAL_II_SETUP_TARGET(capsule)
 TARGET_LINK_LIBRARIES(capsule addition_lib ${LIBRARIES})
+
+ADD_EXECUTABLE(electro_plate_stretch_ac electro_plate_stretch_ac.cc)
+DEAL_II_SETUP_TARGET(electro_plate_stretch_ac)
+TARGET_LINK_LIBRARIES(electro_plate_stretch_ac addition_lib ${LIBRARIES})
+
+ADD_EXECUTABLE(electro_plate electro_plate.cc)
+DEAL_II_SETUP_TARGET(electro_plate)
+TARGET_LINK_LIBRARIES(electro_plate addition_lib ${LIBRARIES})

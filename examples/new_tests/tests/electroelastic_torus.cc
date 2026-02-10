@@ -1224,6 +1224,12 @@ void Nonlinear_shell<dim, spacedim> :: assemble_system(const bool first_load_ste
                     }
                 }
                 cell_external_force_rhs[r_shape] += reference_pressure * scalar_product(a_cov_def[2], u_r) * (detJ_def/detJ_ref) * fe_values.JxW(q_point); //  f^ext;
+                if(r_shape%3 == 2){
+                    cell_external_force_rhs[r_shape] += 0.002 * fe_values.JxW(q_point);
+                }
+                if(r_shape%3 == 0){
+                    cell_external_force_rhs[r_shape] += 0.002 * fe_values.JxW(q_point);
+                }
             }
             area += (detJ_def/detJ_ref) * fe_values.JxW(q_point);
         }// loop over surface quadrature points
@@ -1405,7 +1411,7 @@ template <int dim, int spacedim>
 void Nonlinear_shell<dim, spacedim> ::run()
 {   setup_system();
     bool first_load_step;
-    elec_load = 0.1*std::sqrt(2);
+    // elec_load = 0.1*std::sqrt(2);
     for (unsigned int step = 0; step < max_load_step; ++step) {
         std::cout << "step = "<< step << std::endl;
         
@@ -1432,17 +1438,9 @@ void Nonlinear_shell<dim, spacedim> ::run()
             l2 = std::sqrt(psi_2 * VTV(solution_increment_load_step));
             l1 = std::sqrt(psi_1 * lambda * lambda * reference_pressure_VTV);
         }
-        else if(step < 5)
+       else
         {
             radius = std::sqrt(psi_2 * VTV(solution_increment_load_step) + psi_1 * pressure_increment_load_step * pressure_increment_load_step * reference_pressure_VTV) * 1.2;
-            l2 = std::sqrt(psi_2 * VTV(solution_increment_load_step));
-            l1 = std::sqrt(psi_1 * pressure_increment_load_step * pressure_increment_load_step * reference_pressure_VTV);
-        }else
-        {
-            // radius = std::sqrt(psi_2 * VTV(solution_increment_load_step));
-            // l2 = std::sqrt(psi_2 * VTV(solution_increment_load_step));
-            // l1 = std::sqrt(psi_1 * pressure_increment_load_step * pressure_increment_load_step * reference_pressure_VTV);
-             radius = std::sqrt(psi_2 * VTV(solution_increment_load_step) + psi_1 * pressure_increment_load_step * pressure_increment_load_step * reference_pressure_VTV) * 1.2;
             l2 = std::sqrt(psi_2 * VTV(solution_increment_load_step));
             l1 = std::sqrt(psi_1 * pressure_increment_load_step * pressure_increment_load_step * reference_pressure_VTV);
         }

@@ -1678,8 +1678,6 @@ template <int dim, int spacedim>
 void Nonlinear_shell<dim, spacedim>::make_constrains(const unsigned int newton_iteration){
     
     assemble_boundary_mass_matrix_and_rhs();
-    //        residual_vector += boundary_edge_load_rhs;
-    //        external_force_rhs += boundary_edge_load_rhs;
     tangent_matrix.add(penalty_factor, boundary_mass_matrix);
     for (unsigned int idof = 0; idof <constrained_dof_indices.size(); ++idof) {
         for (unsigned int jdof = 0; jdof <dof_handler.n_dofs(); ++jdof) {
@@ -1695,7 +1693,6 @@ void Nonlinear_shell<dim, spacedim>::make_constrains(const unsigned int newton_i
     }
     if (newton_iteration == 0) {
         residual_vector.add(penalty_factor, boundary_value_rhs);
-        //            external_force_rhs.add(penalty_factor, boundary_value_rhs);
     }
 }
 
