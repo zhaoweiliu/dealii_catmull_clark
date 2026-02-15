@@ -64,6 +64,6 @@ ADD_EXECUTABLE(electro_plate_stretch_ac electro_plate_stretch_ac.cc)
 DEAL_II_SETUP_TARGET(electro_plate_stretch_ac)
 TARGET_LINK_LIBRARIES(electro_plate_stretch_ac addition_lib ${LIBRARIES})
 
-ADD_EXECUTABLE(electro_plate electro_plate.cc)
+ADD_EXECUTABLE(electro_plate electro_plate_2.cc)
 DEAL_II_SETUP_TARGET(electro_plate)
 TARGET_LINK_LIBRARIES(electro_plate addition_lib ${LIBRARIES})

@@ -1307,17 +1307,19 @@ void Nonlinear_shell<dim, spacedim> :: assemble_system(const bool first_load_ste
             if(std::abs(cell->vertex(ivert)[0]) < tolerance){
                 unsigned int dof_id = cell->vertex_dof_index(ivert,0, cell->active_fe_index());                
                 constrained_dof_indices.push_back(dof_id);
+                constrained_dof_indices.push_back(dof_id+1);
                 constrained_dof_indices.push_back(dof_id+2);
             }
-            if(std::abs(cell->vertex(ivert)[1]) < tolerance){
-                unsigned int dof_id = cell->vertex_dof_index(ivert,0, cell->active_fe_index());                
-                constrained_dof_indices.push_back(dof_id+1);
-                // constrained_dof_indices.push_back(dof_id+2);
-            }
+            // if(std::abs(cell->vertex(ivert)[1]) < tolerance){
+            //     unsigned int dof_id = cell->vertex_dof_index(ivert,0, cell->active_fe_index());                
+            //     constrained_dof_indices.push_back(dof_id+1);
+            //     // constrained_dof_indices.push_back(dof_id+2);
+            // }
             if(std::abs(cell->vertex(ivert)[0] - 0.1) < tolerance
             //  ||  std::abs(cell->vertex(ivert)[1] - 0.1) < tolerance
             ){
-                unsigned int dof_id = cell->vertex_dof_index(ivert,0, cell->active_fe_index());                
+                unsigned int dof_id = cell->vertex_dof_index(ivert,0, cell->active_fe_index());
+                constrained_dof_indices.push_back(dof_id+1);                
                 constrained_dof_indices.push_back(dof_id+2);
             }
         }
@@ -1506,9 +1508,9 @@ void Nonlinear_shell<dim, spacedim> ::run()
         }   
         nonlinear_solver(first_load_step); 
         update_solution_and_print_step_info();
-        if (bifurcation == true) {
-           solution_increment_load_step += 0.01 * bifurcation_disp;
-       }
+    //     if (bifurcation == true) {
+    //        solution_increment_load_step += 0.01 * bifurcation_disp;
+    //    }
         vtk_plot("plate_MR=_"+std::to_string(step)+".vtu", dof_handler, mapping_collection, vec_values, present_solution, Vector<double>(), lambda * reference_load);
     }
 }
