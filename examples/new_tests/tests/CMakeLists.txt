@@ -5,16 +5,15 @@
 SET(VTK_DIR "/usr/local/include/vtk-8.2" CACHE PATH "VTK directory override" FORCE)
 file(GLOB LIBRARIES "/Users/zhaoweiliu/Documents/codes/VTK-8.2.0/build/lib/*.dylib")
 message("LIBRARIES = ${LIBRARIES}")
-
 #FIND_PACKAGE(VTK REQUIRED)
 INCLUDE_DIRECTORIES(${VTK_DIR})
 
 INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/addition_lib/include)
 INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/plot/include)
 
-ADD_EXECUTABLE(electro_plate_inflation_ac electro_plate_inflation_ac.cc)
-DEAL_II_SETUP_TARGET(electro_plate_inflation_ac)
-TARGET_LINK_LIBRARIES(electro_plate_inflation_ac addition_lib ${LIBRARIES})
+# ADD_EXECUTABLE(electro_plate_inflation_ac electro_plate_inflation_ac.cc)
+# DEAL_II_SETUP_TARGET(electro_plate_inflation_ac)
+# TARGET_LINK_LIBRARIES(electro_plate_inflation_ac addition_lib ${LIBRARIES})
 
 ADD_EXECUTABLE(incompressible_electroelastic_shell incompressible_electroelastic_shell.cc)
 DEAL_II_SETUP_TARGET(incompressible_electroelastic_shell)
@@ -64,6 +63,22 @@ ADD_EXECUTABLE(electro_plate_stretch_ac electro_plate_stretch_ac.cc)
 DEAL_II_SETUP_TARGET(electro_plate_stretch_ac)
 TARGET_LINK_LIBRARIES(electro_plate_stretch_ac addition_lib ${LIBRARIES})
 
-ADD_EXECUTABLE(electro_plate electro_plate_2.cc)
+ADD_EXECUTABLE(electro_plate electro_plate_4.cc)
 DEAL_II_SETUP_TARGET(electro_plate)
 TARGET_LINK_LIBRARIES(electro_plate addition_lib ${LIBRARIES})
+
+ADD_EXECUTABLE(arch_bistable arch_bistable.cc)
+DEAL_II_SETUP_TARGET(arch_bistable)
+TARGET_LINK_LIBRARIES(arch_bistable addition_lib ${LIBRARIES})
+
+ADD_EXECUTABLE(elec_sphere elec_sphere.cc)
+DEAL_II_SETUP_TARGET(elec_sphere)
+TARGET_LINK_LIBRARIES(elec_sphere addition_lib ${LIBRARIES})
+
+ADD_EXECUTABLE(elec_sphere_arc elec_sphere_arc.cc)
+DEAL_II_SETUP_TARGET(elec_sphere_arc)
+TARGET_LINK_LIBRARIES(elec_sphere_arc addition_lib ${LIBRARIES})
+
+ADD_EXECUTABLE(electro_plate_inflation_ac electro_plate_inflation_ac.cc)
+DEAL_II_SETUP_TARGET(electro_plate_inflation_ac)
+TARGET_LINK_LIBRARIES(electro_plate_inflation_ac addition_lib ${LIBRARIES})

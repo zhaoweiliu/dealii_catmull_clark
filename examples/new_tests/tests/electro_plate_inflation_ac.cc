@@ -832,6 +832,355 @@ material_mooney_rivlin<dim, spacedim> :: get_integral_tensors()
 
 
 template<int dim, int spacedim>
+class material_mooney_rivlin_elec
+{
+public:
+    material_mooney_rivlin_elec(const double c1,
+                                const double c2,
+                                const double h,
+                                const double elec_potential,
+                                const double lambda_p,
+                                const Tensor<2, spacedim> a_cov,
+                                const Tensor<2, dim, Tensor<1,spacedim>> da_cov)
+    :
+    c_1(c1),
+    c_2(c2),
+    thickness(h),
+    elec_potential(elec_potential),
+    lambda_p(lambda_p),
+    a_cov_ref(a_cov),
+    da_cov_ref(da_cov),
+    am_cov_ref(metric_covariant(a_cov_ref)),
+    am_contra_ref(metric_contravariant(am_cov_ref))
+    {
+        Tensor<1, spacedim> a3_t = cross_product_3d(a_cov[0], a_cov[1]);
+        double a3_bar = a3_t.norm();
+        Tensor<1, dim, Tensor<1, spacedim>> a3_t_da;
+        for (unsigned int i = 0; i < dim; ++i) {
+            a3_t_da[i] = cross_product_3d(da_cov[0][i], a_cov[1]) + cross_product_3d(a_cov[0], da_cov[1][i]);
+        }
+        Tensor<1, dim> a3_bar_da;
+        for (unsigned int i = 0; i < dim; ++i) {
+            a3_bar_da[i] = scalar_product(a3_t, a3_t_da[i])/a3_bar;
+        }
+        for (unsigned int i = 0; i < dim; ++i) {
+            da3_ref[i] = a3_t_da[i] / a3_bar -  ( a3_bar_da[i] * a3_t) / (a3_bar * a3_bar);
+        }
+        a_cov_def = a_cov_ref;
+        da_cov_def = da_cov_ref;
+    }
+    
+    Tensor<2,dim>  get_tau(const double C_33,
+                           const Tensor<2,dim> gm_contra_ref,
+                           const Tensor<2,dim> gm_cov_def,
+                           const Tensor<2,dim> gm_contra_def);
+    
+    Tensor<4,dim>  get_elastic_tensor(const double C_33,
+                                      const Tensor<2,dim> gm_contra_ref,
+                                      const Tensor<2,dim> gm_cov_def,
+                                      const Tensor<2,dim> gm_contra_def);
+    
+    void update(const Tensor<1, dim, Tensor<1,spacedim>> delta_u_der, /* du_{,a} */
+                const Tensor<2, dim, Tensor<1,spacedim>> delta_u_der2 /* du_{,ab} */)
+    {
+        u_der += delta_u_der;
+        u_der2 += delta_u_der2;
+        for (unsigned int ia = 0; ia < dim; ++ia){
+            a_cov_def[ia] += delta_u_der[ia]; // a_alpha = bar{a_alpha} + u_{,alpha}
+            for (unsigned int ib = 0; ib < dim; ++ib){
+                da_cov_def[ia][ib] += delta_u_der2[ia][ib]; // a_{alpha,beta} = bar{a_{alpha,beta}} + u_{,alpha beta}
+            }
+        }
+        a_cov_def[2] = cross_product_3d(a_cov_def[0], a_cov_def[1]);
+        a_cov_def[2] = a_cov_def[2]/a_cov_def[2].norm();
+    };
+    
+    std::pair<std::vector<Tensor<2,dim>>, std::vector<Tensor<4,dim>>> get_integral_tensors();
+    
+    Tensor<2, spacedim> get_deformed_covariant_bases()
+    {
+        return a_cov_def;
+    }
+
+    Tensor<2, spacedim> get_reference_covariant_bases()
+    {
+        return a_cov_ref;
+    }
+    
+    Tensor<2, dim, Tensor<1,spacedim>> get_deformed_covariant_bases_deriv()
+    {
+        return da_cov_def;
+    }
+
+    void reset_elec_load(const double new_elec_load)
+    {
+        elec_potential = new_elec_load;
+    }
+    
+private:
+    const double c_1,c_2;
+    // covariant base  a_1, a_2, a_3;
+    const Tensor<2, spacedim> a_cov_ref; // a_i = x_{,i} , i = 1,2,3
+    // derivatives of covariant base;
+    const Tensor<2, dim, Tensor<1,spacedim>> da_cov_ref; // a_{i,j} = x_{,ij} , i,j = 1,2
+    // deformed covariant base  a_1, a_2, a_3;
+    Tensor<2, spacedim> a_cov_def; // a_i = x_{,i} , i = 1,2,3
+    // deformed derivatives of covariant base a_1, a_2;
+    Tensor<2, dim, Tensor<1,spacedim>> da_cov_def; // a_{i,j} = x_{,ij} , i,j = 1,2
+    // derivatives of a_3
+    Tensor<1, dim, Tensor<1,spacedim>> da3_ref;
+    // covariant metric tensor
+    const Tensor<2,dim> am_cov_ref;
+    // contravariant metric tensor
+    const Tensor<2,dim> am_contra_ref;
+    
+    const double thickness;
+    
+    const QGauss<dim-1> Qh = QGauss<dim-1>(3);
+    
+    Tensor<1, dim, Tensor<1,spacedim>> u_der ;
+    
+    Tensor<2, dim, Tensor<1,spacedim>> u_der2;
+
+    const double epsilon = 4.12e-11;
+    double elec_potential;
+    const double lambda_p;  // 预拉伸比
+        
+    // 计算预应变状态下的总右Cauchy-Green张量
+    Tensor<2,dim> compute_C_total(const Tensor<2,dim>& C, const double C_33) const {
+        Tensor<2,dim> C_total;
+        double lambda_p_sq = lambda_p * lambda_p;
+        double lambda_p_inv4 = 1.0 / (lambda_p * lambda_p * lambda_p * lambda_p);
+
+        C_total[0][0] = lambda_p_sq * C[0][0];
+        C_total[0][1] = lambda_p_sq * C[0][1];
+        C_total[1][0] = lambda_p_sq * C[1][0];
+        C_total[1][1] = lambda_p_sq * C[1][1];
+        C_total[0][2] = 0;
+        C_total[2][0] = 0;
+        C_total[1][2] = 0;
+        C_total[2][1] = 0;
+        C_total[2][2] = lambda_p_inv4 * C_33;
+
+        return C_total;
+    }
+
+    // 计算预应变状态下的I1不变量
+    double compute_I1_total(const Tensor<2,dim>& C, const double C_33) const {
+        double lambda_p_sq = lambda_p * lambda_p;
+        double lambda_p_inv4 = 1.0 / (lambda_p * lambda_p * lambda_p * lambda_p);
+        double I1 = lambda_p_sq * (C[0][0] + C[1][1]) + lambda_p_inv4 * C_33;
+        return I1;
+    }
+
+    // 计算预应变状态下的I2不变量
+    double compute_I2_total(const Tensor<2,dim>& C, const double C_33) const {
+        double lambda_p_sq = lambda_p * lambda_p;
+        double lambda_p_inv2 = 1.0 / (lambda_p * lambda_p);
+        double trace_C = C[0][0] + C[1][1];
+        double trace_C_sq = C[0][0]*C[0][0] + C[0][1]*C[1][0] + C[1][0]*C[0][1] + C[1][1]*C[1][1];
+        double I1 = compute_I1_total(C, C_33);
+        double I2 = 0.5 * lambda_p_sq * lambda_p_sq * (trace_C * trace_C - trace_C_sq) + lambda_p_inv2 * trace_C * C_33;
+        return I2;
+    }
+};
+
+
+
+// 计算预应变状态下的应力张量
+template<int dim, int spacedim>
+    Tensor<2,dim> material_mooney_rivlin_elec<dim,spacedim> :: get_tau(  const double C_33,
+                            const Tensor<2,dim> gm_contra_ref,
+                            const Tensor<2,dim> gm_cov_def,
+                            const Tensor<2,dim> gm_contra_def)
+    {
+    Tensor<2,dim> tau;
+
+    // 计算dW/dC的分量
+    double lambda_p_sq = lambda_p * lambda_p;
+    double lambda_p_inv2 = 1.0 / (lambda_p * lambda_p);
+    double trace_C = 0;
+    for (unsigned int ic = 0; ic < dim; ++ic){
+        for (unsigned int id = 0; id < dim; ++id){
+            trace_C += gm_cov_def[ic][id] * gm_contra_ref[ic][id];
+        }
+    }
+
+    Tensor<2,dim> T1;
+    for (unsigned int ia = 0; ia < dim; ++ia){
+        for (unsigned int ib = 0; ib < dim; ++ib){
+            for (unsigned int ic = 0; ic < dim; ++ic){
+                for (unsigned int id = 0; id < dim; ++id){
+                    T1[ia][ib] += gm_contra_ref[ia][ic] * gm_cov_def[ic][id] * gm_contra_ref[ib][id];
+                }
+            }
+        }
+    }
+
+    // 计算 ∂W_mech/∂C_αβ
+    Tensor<2,dim> dW_dC_alpha_beta;
+    for (unsigned int ia = 0; ia < dim; ++ia){
+        for (unsigned int ib = 0; ib < dim; ++ib){
+            dW_dC_alpha_beta[ia][ib] = c_1 * lambda_p_sq * gm_contra_ref[ia][ib] 
+                + c_2 * (lambda_p_sq * lambda_p_sq * (trace_C * gm_contra_ref[ia][ib] - T1[ia][ib]) 
+                + lambda_p_inv2 * gm_contra_ref[ia][ib] * C_33);
+        }
+    }
+
+    // 计算 ∂W_mech/∂C_33
+    double dW_dC_33 = c_1 * lambda_p_sq + c_2 * lambda_p_inv2 * trace_C;
+
+    // 计算面内应力（考虑平面应力条件）
+    for (unsigned int ia = 0; ia < dim; ++ia){
+        for (unsigned int ib = 0; ib < dim; ++ib){
+            tau[ia][ib] = 2 * dW_dC_alpha_beta[ia][ib] - 2 * dW_dC_33 * C_33 * gm_contra_def[ia][ib] - epsilon * (elec_potential * elec_potential) / (thickness * thickness * C_33) * gm_contra_def[ia][ib];
+        }
+    }
+        return tau;
+    }
+
+    // 计算预应变状态下的弹性张量
+    template<int dim, int spacedim>
+    Tensor<4,dim> material_mooney_rivlin_elec<dim,spacedim> :: get_elastic_tensor(const double C_33,
+                                       const Tensor<2,dim> gm_contra_ref,
+                                       const Tensor<2,dim> gm_cov_def,
+                                       const Tensor<2,dim> gm_contra_def)
+    {
+        Tensor<4,dim> elastic_tensor;
+
+        double lambda_p_sq = lambda_p * lambda_p;
+        double lambda_p_inv2 = 1.0 / (lambda_p * lambda_p);
+        
+        double trace_C = 0;
+        for (unsigned int ic = 0; ic < dim; ++ic){
+            for (unsigned int id = 0; id < dim; ++id){
+                trace_C += gm_cov_def[ic][id] * gm_contra_ref[ic][id];
+            }
+        }
+
+        Tensor<2,dim> T1;
+        for (unsigned int ia = 0; ia < dim; ++ia){
+            for (unsigned int ib = 0; ib < dim; ++ib){
+                for (unsigned int ic = 0; ic < dim; ++ic){
+                    for (unsigned int id = 0; id < dim; ++id){
+                        T1[ia][ib] += gm_contra_ref[ia][ic] * gm_cov_def[ic][id] * gm_contra_ref[ib][id];
+                    }
+                }
+            }
+        }
+
+        Tensor<2,dim> dW_dC_alpha_beta;        
+        Tensor<2,dim> d2W_dC_alpha_beta_dC33;
+        Tensor<4,dim> d2W_dC2;
+        for (unsigned int ia = 0; ia < dim; ++ia){
+            for (unsigned int ib = 0; ib < dim; ++ib){
+                // 计算 ∂W_mech/∂C_αβ
+                dW_dC_alpha_beta[ia][ib] = c_1 * lambda_p_sq * gm_contra_ref[ia][ib]
+                                        + c_2 * (lambda_p_sq * lambda_p_sq * (trace_C * gm_contra_ref[ia][ib] - T1[ia][ib]) 
+                                        + lambda_p_inv2 * gm_contra_ref[ia][ib] * C_33);
+                // 计算 ∂²W_mech/∂C_αβ∂C_33
+                d2W_dC_alpha_beta_dC33[ia][ib] = c_2 * lambda_p_inv2 * gm_contra_ref[ia][ib];
+                    + c_2 * (lambda_p_sq * lambda_p_sq * (trace_C * gm_contra_ref[ia][ib] - T1[ia][ib]) 
+                    + lambda_p_inv2 * gm_contra_ref[ia][ib] * C_33);
+                for (unsigned int ic = 0; ic < dim; ++ic){
+                    for (unsigned int id = 0; id < dim; ++id){
+                        // 计算 ∂²W_mech/∂C_αβ∂C_γδ
+                        d2W_dC2[ia][ib][ic][id] = c_2 * lambda_p_sq * lambda_p_sq * (
+                            gm_contra_ref[ia][ib] * gm_contra_ref[ic][id]  
+                            - 0.5 * (gm_contra_ref[ia][ic] * gm_contra_ref[ib][id] + gm_contra_ref[ia][id] * gm_contra_ref[ib][ic]));
+                    }
+                }
+            }
+        }
+        // 计算 ∂W_mech/∂C_33
+        double dW_dC_33 = c_1 * lambda_p_sq + c_2 * lambda_p_inv2 * trace_C;
+
+        // 计算等效弹性张量
+        for (unsigned int ia = 0; ia < dim; ++ia){
+            for (unsigned int ib = 0; ib < dim; ++ib){
+                for (unsigned int ic = 0; ic < dim; ++ic){
+                    for (unsigned int id = 0; id < dim; ++id){
+                        elastic_tensor[ia][ib][ic][id] = 4 * d2W_dC2[ia][ib][ic][id] 
+                            - 4 * d2W_dC_alpha_beta_dC33[ia][ib] * C_33 * gm_contra_def[ic][id] 
+                            - 4 * d2W_dC_alpha_beta_dC33[ic][id] * C_33 * gm_contra_def[ia][ib]
+                            - (2*C_33*dW_dC_33+epsilon * (elec_potential * elec_potential) / (thickness * thickness * C_33)) * (gm_contra_def[ia][ib] * gm_contra_def[ic][id] - gm_contra_def[ia][ic] * gm_contra_def[ib][id] - gm_contra_def[ia][id] * gm_contra_def[ib][ic]) + (6 * C_33 * dW_dC_33 - epsilon * (elec_potential * elec_potential) / (thickness * thickness * C_33))*gm_contra_def[ia][ib] * gm_contra_def[ic][id];
+                    }
+                }
+            }
+        }
+
+        return elastic_tensor;
+    }
+
+
+
+template<int dim, int spacedim>
+std::pair<std::vector<Tensor<2,dim>>, std::vector<Tensor<4,dim>>>
+material_mooney_rivlin_elec<dim, spacedim> :: get_integral_tensors()
+{
+    std::vector<Tensor<2,dim>> resultants(2);
+    std::vector<Tensor<4,dim>> D_tensors(3);
+    for (unsigned int iq_1d = 0; iq_1d < Qh.size(); ++iq_1d) {
+        double u_t = Qh.get_points()[iq_1d][0];
+        double w_t = Qh.get_weights()[iq_1d];
+        double zeta = thickness * (u_t - 0.5);
+        Tensor<dim,spacedim> g_cov_ref;
+        g_cov_ref[0] = a_cov_ref[0] + zeta * da3_ref[0];
+        g_cov_ref[1] = a_cov_ref[1] + zeta * da3_ref[1];
+        double J_ratio = cross_product_3d(g_cov_ref[0], g_cov_ref[1]).norm()/cross_product_3d(a_cov_ref[0],a_cov_ref[1]).norm();
+        g_cov_ref[2] = a_cov_ref[2]; // Kirchhoff-Love assumption
+        
+        Tensor<2, dim> gm_cov_ref = metric_covariant(g_cov_ref); // gm_ab
+        Tensor<2, dim> gm_contra_ref = metric_contravariant(gm_cov_ref);
+        
+        auto a_cov_def = a_cov_ref;
+        auto da_cov_def = da_cov_ref;
+        a_cov_def[0] += u_der[0];
+        a_cov_def[1] += u_der[1];
+        da_cov_def[0][0] += u_der2[0][0];
+        da_cov_def[0][1] += u_der2[0][1];
+        da_cov_def[1][0] += u_der2[1][0];
+        da_cov_def[1][1] += u_der2[1][1];
+        double a3_norm_ref = cross_product_3d(a_cov_ref[0], a_cov_ref[1]).norm();
+        double a3_norm_def = cross_product_3d(a_cov_def[0], a_cov_def[1]).norm();
+        auto a3_def =  cross_product_3d(a_cov_def[0], a_cov_def[1])/a3_norm_def;
+        double l3 = a3_norm_ref/a3_norm_def;
+        Tensor<2, dim> gm_cov_def;
+        for (unsigned int ia = 0; ia < dim; ++ia) {
+            for (unsigned int ib = 0; ib < dim; ++ib) {
+                gm_cov_def[ia][ib] = scalar_product(a_cov_def[ia], a_cov_def[ib]) - 2 * zeta * l3 * scalar_product(da_cov_def[ia][ib], a3_def);
+            }
+        }
+        Tensor<2, dim> gm_contra_def = metric_contravariant(gm_cov_def);
+        
+        // for incompressible material
+        double g_33 = determinant(gm_cov_ref)/determinant(gm_cov_def); // J_0^{-2}
+        
+//        std::cout << "g_33 = " << g_33 << std::endl;
+        
+        Tensor<2, dim> stress_tensor = get_tau(g_33, gm_contra_ref, gm_cov_def, gm_contra_def);
+        Tensor<4, dim> elastic_tensor = get_elastic_tensor(g_33, gm_contra_ref,gm_cov_def,gm_contra_def);
+        
+        for (unsigned int ia = 0; ia < dim; ++ia) {
+            for (unsigned int ib = 0; ib < dim; ++ib) {
+                resultants[0][ia][ib] += stress_tensor[ia][ib] * thickness * J_ratio * w_t;
+                resultants[1][ia][ib] += stress_tensor[ia][ib] * zeta * thickness * J_ratio * w_t;
+                for (unsigned int ic = 0; ic < dim; ++ic) {
+                    for (unsigned int id = 0; id < dim; ++id) {
+                        D_tensors[0][ia][ib][ic][id] += elastic_tensor[ia][ib][ic][id] * J_ratio * thickness * w_t;
+                        D_tensors[1][ia][ib][ic][id] += elastic_tensor[ia][ib][ic][id] * zeta * J_ratio * thickness * w_t;
+                        D_tensors[2][ia][ib][ic][id] += elastic_tensor[ia][ib][ic][id] * zeta  * zeta * J_ratio * thickness * w_t;
+                    }
+                }
+            }
+        }
+    }//loop over thickness quadrature points
+    return std::make_pair(resultants, D_tensors);
+}
+
+
+
+template<int dim, int spacedim>
 class PointHistory
 {
 public:
@@ -976,7 +1325,85 @@ private:
 
 
 
+template<int dim, int spacedim>
+class PointHistory_MR_elec
+{
+public:
+    PointHistory_MR_elec()
+    {}
+    
+    virtual ~PointHistory_MR_elec()
+    {}
+    
+    std::string return_material_type(){return material_type;}
+    
+    void setup_cell_qp (const double h,
+                        const double elec_load,
+                        const double lambda_p,
+                        const Tensor<2, spacedim> a_cov,
+                        const Tensor<2, dim, Tensor<1,spacedim>> da_cov,
+                        const double c_1,
+                        const double c_2)
+    {
+        material.reset(new material_mooney_rivlin_elec<dim,spacedim>(c_1, c_2, h, elec_load, lambda_p, a_cov, da_cov));
+    }
+    
+    void update_cell_qp(const Tensor<1, dim, Tensor<1,spacedim>> delta_u_der, /* du_{,a} */
+                        const Tensor<2, dim, Tensor<1,spacedim>> delta_u_der2 /* du_{,ab} */)
+    {
+        material->update(delta_u_der, delta_u_der2);
+    }
 
+    void update_cell_elec_load(const double new_elec_load)
+    {
+        material->reset_elec_load(new_elec_load);
+    }
+    
+    void update_qp_displacement(const Tensor<1,spacedim> delta_u)
+    {
+        displacement += delta_u;
+    }
+    
+    std::pair<std::vector<Tensor<2,dim>>, std::vector<Tensor<4,dim>>> get_integral_tensors(){
+        return material->get_integral_tensors();
+    }
+    
+    Tensor<2, spacedim> get_deformed_covariant_bases(){
+        return material->get_deformed_covariant_bases();
+    }
+    
+    Tensor<2, spacedim> get_reference_covariant_bases(){
+        return material->get_reference_covariant_bases();
+    }
+    
+    Tensor<2, dim, Tensor<1,spacedim>> get_deformed_covariant_bases_deriv(){
+        return material->get_deformed_covariant_bases_deriv();
+    }
+    
+    void set_jxw_reference(double jxw){mjxw = jxw;}
+    
+    void set_reference_position( Point<spacedim> pt_ref){reference_coords = pt_ref;}
+    
+    Point<spacedim> get_coord_reference(){return reference_coords;}
+    
+    Point<spacedim> get_displacement(){return displacement;}
+
+    double get_jxw_deformed(){
+        Tensor<2, spacedim> a_cov_ref = material->get_reference_covariant_bases();
+        Tensor<2, spacedim> a_cov_def = material->get_deformed_covariant_bases();
+        double detJ_ref = cross_product_3d(a_cov_ref[0], a_cov_ref[1]).norm();
+        double detJ_def = cross_product_3d(a_cov_def[0], a_cov_def[1]).norm();
+        double area_stretch = detJ_def/detJ_ref;
+        return area_stretch * mjxw;
+    }
+    
+private:
+    std::shared_ptr< material_mooney_rivlin_elec<dim,spacedim> > material;
+    std::string material_type = "mooney_rivlin_elec";
+    double mjxw = 0.;
+    Point<spacedim> reference_coords{0.,0.,0.};
+    Point<spacedim> displacement{0.,0.,0.};
+};
 
 
 
@@ -1141,9 +1568,10 @@ private:
     hp::QCollection<dim> boundary_q_collection;
     SparsityPattern      sparsity_pattern;
     AffineConstraints<double> constraints;
-    std::vector<PointHistory_MR<dim,spacedim>>  quadrature_point_history;
+    // std::vector<PointHistory_MR<dim,spacedim>>  quadrature_point_history;
+    std::vector<PointHistory_MR_elec<dim,spacedim>>  quadrature_point_history;
     //    std::vector<PointHistory<dim,spacedim>>  quadrature_point_history;
-    std::string material_type = "neo_hookean";
+    std::string material_type = "Mooney-Rivlin elec";
     SparseMatrix<double> tangent_matrix;
     SparseMatrix<double> boundary_mass_matrix;
     Vector<double> solution_newton_update;
@@ -1170,21 +1598,22 @@ private:
     //    std::vector<types::global_dof_index> fix_dof_indices;
     double f_load;
     double u_load;
+    double elec_load;
     unsigned int total_q_points;
     const double tolerance = 1e-6;
     //    const double thickness = 0.2;
-    const double thickness = 0.5;
+    const double thickness = 0.5e-3;
     //    const double mu = 4.225e5, c_1 = 0.4375*mu, c_2 = 0.0625*mu;
     //    const double mu = 4.225e5, c_1 = 0.5*mu, c_2 = 0.;
-    const double mu = 80, c_1 = mu, c_2 = 0.25 * c_1;
-    
+    const double mu = 80e3, c_1 = mu, c_2 = 0.25 * c_1;
+    const double lambda_p = 1.1;
     //    const double mu = 4.225e5;
     const QGauss<dim-1> Qthickness = QGauss<dim-1>(2);
     const double penalty_factor = 10e30;
-    const double reference_pressure = 10;
+    const double reference_pressure = 1000;
     const unsigned int max_load_step = 30;
     const unsigned int max_newton_step = 20;
-    double psi_1 = 0.1,psi_2 = 1, radius;
+    double psi_1 = 1e-4,psi_2 = 1, radius;
     bool converged = false;
 };
 
@@ -1303,7 +1732,7 @@ Triangulation<dim,spacedim> set_mesh( std::string type )
         std::ifstream file(mfile.c_str());
         Assert(file, ExcFileNotOpen(mfile.c_str()));
         grid_in.read_msh(file);
-        GridTools::scale(7.7, mesh);
+        GridTools::scale(7.7e-2, mesh);
 //        GridTools::scale(7.55, mesh);`
 
     }
@@ -1411,8 +1840,9 @@ void Nonlinear_shell<dim, spacedim> :: assemble_system(const bool first_load_ste
         cell_external_force_rhs.reinit(dofs_per_cell);
         cell_external_force_rhs = 0;
         
-        //        PointHistory<dim,spacedim> *lqph = reinterpret_cast<PointHistory<dim,spacedim>*>(cell->user_pointer());
-        PointHistory_MR<dim,spacedim> *lqph = reinterpret_cast<PointHistory_MR<dim,spacedim>*>(cell->user_pointer());
+        // PointHistory<dim,spacedim> *lqph = reinterpret_cast<PointHistory<dim,spacedim>*>(cell->user_pointer());
+        // PointHistory_MR<dim,spacedim> *lqph = reinterpret_cast<PointHistory_MR<dim,spacedim>*>(cell->user_pointer());
+        PointHistory_MR_elec<dim,spacedim> *lqph = reinterpret_cast<PointHistory_MR_elec<dim,spacedim>*>(cell->user_pointer());
         Assert(lqph >= &quadrature_point_history.front(), ExcInternalError());
         Assert(lqph <= &quadrature_point_history.back(), ExcInternalError());
         
@@ -1444,11 +1874,15 @@ void Nonlinear_shell<dim, spacedim> :: assemble_system(const bool first_load_ste
                 }
             }
             if(first_load_step == true && first_newton_step == true){
-                lqph[q_point].setup_cell_qp(thickness, a_cov_ref, da_cov_ref, c_1, c_2);
-                //                lqph[q_point].setup_cell_qp(thickness, a_cov_ref, da_cov_ref, mu);
+                // lqph[q_point].setup_cell_qp(thickness, a_cov_ref, da_cov_ref, c_1, c_2);
+                lqph[q_point].setup_cell_qp(thickness, elec_load, lambda_p, a_cov_ref, da_cov_ref, c_1, c_2);
+                // lqph[q_point].setup_cell_qp(thickness, a_cov_ref, da_cov_ref, mu);
                 lqph[q_point].set_jxw_reference(fe_values.JxW(q_point));
                 lqph[q_point].set_reference_position(qpt_ref);
-                
+            }
+
+            if(first_load_step == false && first_newton_step == true){
+                lqph[q_point].update_cell_elec_load(elec_load);
             }
             
             std::vector<double> shape_vec(dofs_per_cell);
@@ -1458,7 +1892,7 @@ void Nonlinear_shell<dim, spacedim> :: assemble_system(const bool first_load_ste
             Tensor<1,spacedim> delta_u; // u_{,a}
             Tensor<1, dim, Tensor<1,spacedim>> delta_u_der; // u_{,a}
             Tensor<2, dim, Tensor<1,spacedim>> delta_u_der2; // u_{,ab}
-            Point<spacedim> qpt_def = qpt_ref;
+            // Point<spacedim> qpt_def = qpt_ref;
             for (unsigned int i_shape = 0; i_shape < dofs_per_cell; ++i_shape) {
                 // compute first and second grad of i_shape function
                 double i_shape_vlaue = fe_values.shape_value(i_shape, q_point);
@@ -1606,7 +2040,7 @@ void Nonlinear_shell<dim, spacedim>::assemble_boundary_mass_matrix_and_rhs()
         for (unsigned int ivert = 0; ivert < GeometryInfo<dim>::vertices_per_cell; ++ivert)
         {
 //            if(std::abs(cell->vertex(ivert).norm() - 7.55) < tol){
-            if(std::abs(cell->vertex(ivert).norm() - 7.7) < tol){
+            if(std::abs(cell->vertex(ivert).norm() - 7.7e-2) < tol){
                 unsigned int dof_id = cell->vertex_dof_index(ivert,0, cell->active_fe_index());
                 constrained_dof_indices.push_back(dof_id);
                 constrained_dof_indices.push_back(dof_id+1);
@@ -1741,17 +2175,20 @@ template <int dim, int spacedim>
 void Nonlinear_shell<dim, spacedim> ::run()
 {   setup_system();
     bool first_load_step;
+    elec_load = 10000.;
     for (unsigned int step = 0; step < max_load_step; ++step) {
         std::cout << "step = "<< step << std::endl;
         if(step == 0){
-            lambda = 0.02;
+            lambda = 0.1;
             first_load_step = true;
         }else{
             first_load_step = false;
             if (step == 1) {
+                elec_load = 15000.;
                 pressure_increment_load_step = 0.1;
             }
         }
+        // if(step > 2){elec_load = 15000.;}
         nonlinear_solver(first_load_step);
         double l1,l2;
         if(step == 0){
@@ -1764,6 +2201,10 @@ void Nonlinear_shell<dim, spacedim> ::run()
             radius = std::sqrt(psi_2 * VTV(solution_increment_load_step) + psi_1 * pressure_increment_load_step * pressure_increment_load_step * reference_pressure_VTV);
             l2 = std::sqrt(psi_2 * VTV(solution_increment_load_step));
             l1 = std::sqrt(psi_1 * pressure_increment_load_step * pressure_increment_load_step * reference_pressure_VTV);
+            // if (step == 10) 
+            // {
+            //     radius *= 0.5;
+            // }
         }
         std::cout<< " radius = " << radius <<std::endl;
         std::cout<< " displacement_step_length = " << l2 << "\n load_step_length = " <<  l1 << std::endl;
@@ -1774,18 +2215,16 @@ void Nonlinear_shell<dim, spacedim> ::run()
         std::cout << "pressure_load = " << lambda * reference_pressure << "n/m2" <<std::endl;
         
         // calculate area and volume
-        double area = 0.,volume = 0.;
+        double area = 0.;
         for (unsigned iq = 0; iq < quadrature_point_history.size(); ++iq) {
             area += quadrature_point_history[iq].get_jxw_deformed();
             Point<spacedim> qpt_ref = quadrature_point_history[iq].get_coord_reference();
             Tensor<1, spacedim> disp =quadrature_point_history[iq].get_displacement();
             Point<spacedim> qpt_def = qpt_ref + disp;
-            volume += std::abs(qpt_def[2]) * quadrature_point_history[iq].get_jxw_deformed();
         }
         std::cout << " area = "<< area << std::endl;
-        std::cout << " volume = "<< volume << std::endl;
         
-        // vtk_plot("elec_thin_plate_0= "+std::to_string(step)+".vtu", dof_handler, mapping_collection, vec_values, present_solution, Vector<double>(), lambda * reference_pressure,area,volume);
+        vtk_plot("elec_thin_plate_" +std::to_string(lambda_p)+"_"+std::to_string(elec_load)+"_"+std::to_string(step)+".vtu", dof_handler, mapping_collection, vec_values, present_solution, Vector<double>(), lambda * reference_pressure,area);
         // initial guess for next load step
         //        solution_increment_load_step = solution_increment_load_step;
         //        pressure_increment_load_step = pressure_increment_load_step;

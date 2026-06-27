@@ -521,15 +521,11 @@ Tensor<2,dim> material_mooney_rivlin_elec<dim,spacedim> :: get_tau(const double 
             }
         }
     }
-    double electric_load =  elec_potential * elec_potential/(4 * beta* thickness * thickness);
     for (unsigned int ia = 0; ia < dim; ++ia){
         for (unsigned int ib = 0; ib < dim; ++ib){
-            // tau[ia][ib] += 2 * c_1 * gm_contra_ref[ia][ib] + 2 * c_2 * (trace_C * gm_contra_ref[ia][ib] - T1[ia][ib]) - 2 * (c_1 + c_2 * (trace_C - C_33)) * C_33 * gm_contra_def[ia][ib] ;
-            // tau[ia][ib] += 2 * c_1 * gm_contra_ref[ia][ib] + 2 * c_2 * (trace_C * gm_contra_ref[ia][ib] - T1[ia][ib]) - 2 * (c_1 + c_2 * (trace_C - C_33) + electric_load/(C_33 * C_33)) * C_33 * gm_contra_def[ia][ib] ;
             tau[ia][ib] += 2 * c_1 * gm_contra_ref[ia][ib] + 2 * c_2 * (trace_C * gm_contra_ref[ia][ib] - T1[ia][ib]) - 2 * (c_1 + c_2 * (trace_C - C_33) ) * C_33 * gm_contra_def[ia][ib] - (elec_potential * elec_potential)/(2*beta*thickness*thickness*C_33) * gm_contra_def[ia][ib] ;
         }
     }
-    
     return tau;
 }
 

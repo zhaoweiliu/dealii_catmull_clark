@@ -79,12 +79,12 @@ SparseDirectUMFPACK::clear()
     }
 
   {
-    std::vector<long int> tmp;
+    std::vector<types::suitesparse_index> tmp;
     tmp.swap(Ap);
   }
 
   {
-    std::vector<long int> tmp;
+    std::vector<types::suitesparse_index> tmp;
     tmp.swap(Ai);
   }
 
@@ -238,7 +238,7 @@ SparseDirectUMFPACK::factorize(const Matrix &matrix)
   {
     // have an array that for each row points to the first entry not yet
     // written to
-    std::vector<long int> row_pointers = Ap;
+    std::vector<types::suitesparse_index> row_pointers = Ap;
 
     // loop over the elements of the matrix row by row, as suggested in the
     // documentation of the sparse matrix iterator class

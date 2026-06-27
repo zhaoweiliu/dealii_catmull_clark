@@ -494,9 +494,11 @@ Tensor<2,dim> material_mooney_rivlin_elec<dim,spacedim> :: get_tau(const double 
     double electric_load =  elec_potential * elec_potential/(4 * beta* thickness * thickness);
     for (unsigned int ia = 0; ia < dim; ++ia){
         for (unsigned int ib = 0; ib < dim; ++ib){
-            // tau[ia][ib] += 2 * c_1 * gm_contra_ref[ia][ib] + 2 * c_2 * (trace_C * gm_contra_ref[ia][ib] - T1[ia][ib]) - 2 * (c_1 + c_2 * (trace_C - C_33)) * C_33 * gm_contra_def[ia][ib] ;
-            // tau[ia][ib] += 2 * c_1 * gm_contra_ref[ia][ib] + 2 * c_2 * (trace_C * gm_contra_ref[ia][ib] - T1[ia][ib]) - 2 * (c_1 + c_2 * (trace_C - C_33) + electric_load/(C_33 * C_33)) * C_33 * gm_contra_def[ia][ib] ;
-            tau[ia][ib] += 2 * c_1 * gm_contra_ref[ia][ib] + 2 * c_2 * (trace_C * gm_contra_ref[ia][ib] - T1[ia][ib]) - 2 * (c_1 + c_2 * (trace_C - C_33) ) * C_33 * gm_contra_def[ia][ib] - (elec_potential * elec_potential)/(2*beta*thickness*thickness*C_33) * gm_contra_def[ia][ib] ;
+            double dpsidab = c_1 * gm_contra_ref[ia][ib] + c_2 * (trace_C * gm_contra_ref[ia][ib] - T1[ia][ib]);
+            double dpsid33 = c_1 + c_2 * (trace_C - C_33);
+            double elec_tau = (elec_potential * elec_potential)/(2*beta*thickness*thickness*C_33) * gm_contra_def[ia][ib];
+            tau[ia][ib] += 2*(dpsidab + dpsid33*C_33*gm_contra_def[ia][ib]) - elec_tau;
+            // tau[ia][ib] += 2 * c_1 * gm_contra_ref[ia][ib] + 2 * c_2 * (trace_C * gm_contra_ref[ia][ib] - T1[ia][ib]) - 2 * (c_1 + c_2 * (trace_C - C_33) ) * C_33 * gm_contra_def[ia][ib] - (elec_potential * elec_potential)/(2*beta*thickness*thickness*C_33) * gm_contra_def[ia][ib] ;
         }
     }
     
@@ -858,7 +860,7 @@ private:
 //    const double mu = 4.225e5;
     const QGauss<dim-1> Qthickness = QGauss<dim-1>(2);
     const double penalty_factor = 10e30;
-    const double reference_pressure = 5000;
+    const double reference_pressure = 50;
     const unsigned int max_load_step = 30;
     const unsigned int max_newton_step = 20;
     double psi_1 = 5e-7,psi_2 = 1, radius;
@@ -1269,13 +1271,9 @@ void Nonlinear_shell<dim, spacedim>::assemble_boundary_mass_matrix_and_rhs()
                 }
                 double tol = 1e-9;
                 if (std::abs(qpt[0]) < tol || std::abs(qpt[1]) < tol || std::abs(qpt[2]) < tol) {
-                    double jxw;
+                    double jxw = b_fe_values.JxW(q_point);
+                    std::cout << "Found boundary point at " << qpt << " jxw=" << jxw << std::endl;
                     
-                    if (b_fe_values.get_quadrature().point(q_point)[0] == 0 ) {
-                        jxw = a_cov[1].norm() * b_fe_values.get_quadrature().weight(q_point);
-                    }else if (b_fe_values.get_quadrature().point(q_point)[1] == 0 ){
-                        jxw = a_cov[0].norm() * b_fe_values.get_quadrature().weight(q_point);
-                    }                    
                     for (unsigned int i_shape = 0; i_shape < dofs_per_cell; ++i_shape) {
                         if ( b_fe_values.shape_value(i_shape, q_point) > tol) {
                             constrained_dof_indices.push_back(local_dof_indices[i_shape]);
@@ -1316,7 +1314,25 @@ void Nonlinear_shell<dim, spacedim>::make_constrains(const unsigned int newton_i
         assemble_boundary_mass_matrix_and_rhs();
 //        residual_vector += boundary_edge_load_rhs;
 //        external_force_rhs += boundary_edge_load_rhs;
-        tangent_matrix.add(penalty_factor, boundary_mass_matrix);
+        std::cout << "boundary_mass_matrix non-zero entries: " << boundary_mass_matrix.n_nonzero_elements() << std::endl;
+        std::cout << "constrained_dof_indices size: " << constrained_dof_indices.size() << std::endl;
+        // Use direct set method like cylinder.cc to ensure boundary conditions are enforced
+        for (unsigned int idof = 0; idof < constrained_dof_indices.size(); ++idof) {
+            for (unsigned int jdof = 0; jdof < dof_handler.n_dofs(); ++jdof) {
+                if (constrained_dof_indices[idof] == jdof){
+                    tangent_matrix.set(constrained_dof_indices[idof], constrained_dof_indices[idof], penalty_factor);
+                }
+                else
+                {
+                    tangent_matrix.set(constrained_dof_indices[idof], jdof, 0);
+                    tangent_matrix.set(jdof, constrained_dof_indices[idof], 0);
+                }
+            }
+        }
+        // Check first few constrained dofs after modification
+        for (unsigned int i = 0; i < std::min((unsigned int)5, (unsigned int)constrained_dof_indices.size()); ++i) {
+            std::cout << "  after set: dof " << constrained_dof_indices[i] << " diag=" << tangent_matrix.diag_element(constrained_dof_indices[i]) << std::endl;
+        }
         if (newton_iteration == 0) {
             residual_vector.add(penalty_factor, boundary_value_rhs);
 //            external_force_rhs.add(penalty_factor, boundary_value_rhs);
